@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { useInfiniteScroll } from '@vueuse/core'
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { average } from 'color.js'
 
 import SongItem from '~/components/SongItem.vue'
 // @ts-ignore
@@ -20,6 +21,23 @@ const store = useBlblStore()
 const currentFavId = computed(() => route.params.favId || '')
 
 const favInfo = ref<any>(null)
+
+const dominantColor = ref('#1db954') // 默认绿色
+
+// 提取封面主色调
+watch(favInfo, async (newInfo) => {
+  if (newInfo?.cover) {
+    try {
+      const color = await average(newInfo.cover, { amount: 1, format: 'hex' })
+      if (typeof color === 'string') {
+        dominantColor.value = color
+      }
+    } catch (e) {
+      console.warn('Failed to extract color:', e)
+      dominantColor.value = '#1db954'
+    }
+  }
+}, { immediate: true })
 const songListByPage = ref<Record<number, song[]>>({})
 const renderList = computed(() => {
   return Object.values(songListByPage.value).flat() as song[]
@@ -120,18 +138,19 @@ function handleRemoveSong(song: song) {
   <!-- 页面主容器：占据 100% 高度，Flex 布局 -->
   <div class="w-full h-[calc(80vh)] flex flex-col bg-[#121212] relative overflow-hidden">
     
-    <!-- 顶部背景 -->
+    <!-- 顶部背景 - 使用封面主色调 -->
     <div 
-      class="absolute top-0 left-0 w-full h-[300px] z-0 pointer-events-none"
-      style="background: linear-gradient(to bottom, #2a2a2a, #121212)"
+      class="absolute top-0 left-0 w-full h-[300px] z-0 pointer-events-none transition-all duration-500"
+      :style="{ background: `linear-gradient(to bottom, ${dominantColor}, #121212)` }"
     ></div>
 
     <!-- 固定头部区域 (不滚动) -->
     <div class="shrink-0 relative z-10">
       <!-- 信息头 -->
       <div class="px-8 pt-6 flex items-end gap-6 pb-6">
-        <div class="h-52 w-52 rounded-lg bg-gradient-to-br from-[#1db954] to-[#1aa34a] flex items-center justify-center shadow-2xl">
+        <div class="relative h-52 w-52 rounded-lg flex items-center justify-center shadow-2xl of-hidden" :style="{ background: `linear-gradient(135deg, ${dominantColor}, #1a1a1a)` }">
           <div class="i-mingcute:folder-fill text-white text-8xl opacity-50" />
+          <div v-if="favInfo?.cover" :style="{backgroundImage: `url(${favInfo.cover})`}" class="absolute top-0 left-0 w-full h-full bg-cover bg-center" />
         </div>
         <div class="flex flex-col gap-2 mb-2 text-white">
           <div class="text-sm font-bold uppercase text-[#1db954]">收藏夹</div>
