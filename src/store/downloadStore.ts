@@ -7,6 +7,9 @@ export interface DownloadConfig {
   ffmpegInstalled: boolean
   ffmpegVersion: string
   ffmpegPath: string
+  fileNameFormat: string
+  imageNameFormat: string
+  lyricNameFormat: string
 }
 
 export const useDownloadStore = defineStore('download', {
@@ -17,6 +20,9 @@ export const useDownloadStore = defineStore('download', {
       ffmpegInstalled: false,
       ffmpegVersion: '',
       ffmpegPath: '',
+      fileNameFormat: '{singer} - {song}',
+      imageNameFormat: 'cover.jpg',
+      lyricNameFormat: '{singer} - {song}.lrc',
     } as DownloadConfig),
   }),
 
@@ -34,6 +40,9 @@ export const useDownloadStore = defineStore('download', {
         path: this.config.ffmpegPath,
       }
     },
+    getFileNameFormat(): string {
+      return this.config.fileNameFormat || '{singer} - {song}'
+    },
   },
 
   actions: {
@@ -48,12 +57,24 @@ export const useDownloadStore = defineStore('download', {
       this.config.ffmpegVersion = info.version
       this.config.ffmpegPath = info.path
     },
+    setFileNameFormat(format: string) {
+      this.config.fileNameFormat = format
+    },
+    setImageNameFormat(format: string) {
+      this.config.imageNameFormat = format
+    },
+    setLyricNameFormat(format: string) {
+      this.config.lyricNameFormat = format
+    },
     resetConfig() {
       this.config.downloadPath = ''
       this.config.createAuthorFolder = true
       this.config.ffmpegInstalled = false
       this.config.ffmpegVersion = ''
       this.config.ffmpegPath = ''
+      this.config.fileNameFormat = '{singer} - {song}'
+      this.config.imageNameFormat = 'cover.jpg'
+      this.config.lyricNameFormat = '{singer} - {song}.lrc'
     },
   },
 })

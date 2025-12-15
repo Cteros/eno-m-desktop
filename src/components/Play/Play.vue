@@ -9,6 +9,7 @@ import cn from 'classnames'
 import { VIDEO_MODE, useBlblStore } from '../../blbl/store'
 import { usePlaylistStore } from '../../playlist/store.ts'
 import { useDownloadStore } from '../../store/downloadStore'
+import { formatFileName } from '~/utils/filename'
 import LoopSwitch from './LoopSwitch.vue'
 
 // hooks & utils
@@ -357,12 +358,15 @@ async function downloadSong() {
   try {
     // 获取音频URL，处理m4s文件
     const url = store.play.url
-    const fileName = `${store.play.author || 'Unknown'} - ${store.play.title}`
-      .replace(/[/\\?*:|"<>]/g, '_') // 移除不合法的文件名字符
+    const fileName = formatFileName(downloadStore.config.fileNameFormat || '{singer} - {song}', {
+      singer: store.play.author,
+      song: store.play.title,
+      aid: store.play.id
+    })
 
     const result = await window.ipcRenderer.invoke('download-song', {
       url,
-      fileName: store.play.title,
+      fileName: fileName,
       author: store.play.author,
       basePath: downloadStore.config.downloadPath,
       createAuthorFolder: downloadStore.config.createAuthorFolder,

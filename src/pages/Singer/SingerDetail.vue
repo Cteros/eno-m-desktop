@@ -11,6 +11,7 @@ import { usePlaylistStore } from '~/playlist/store'
 import Loading from '~/components/loading/index.vue'
 import Message from '~/components/message'
 import { useDownloadStore } from '~/store/downloadStore'
+import { formatFileName } from '~/utils/filename'
 import { average } from 'color.js'
 import BulkDownloadDialog from '~/components/BulkDownloadDialog.vue'
 import { useUIStore } from '@/store/uiStore'
@@ -291,7 +292,11 @@ async function prepareBulkDownload() {
     // ✅ 预检查哪些文件已存在
     try {
       const fileNames = bulkSongList.value.map(s => ({
-        fileName: s.title,
+        fileName: formatFileName(downloadStore.config.fileNameFormat || '{singer} - {song}', {
+          singer: s.author,
+          song: s.title,
+          aid: s.id
+        }),
         author: s.author
       }))
       const existsMap = await window.ipcRenderer.invoke('check-files-exist',
@@ -301,8 +306,14 @@ async function prepareBulkDownload() {
       )
 
       // 标记已存在的文件
-      bulkSongList.value.forEach(song => {
-        if (existsMap[song.title]) {
+      bulkSongList.value.forEach((song, index) => {
+        // 注意：这里需要用同样的方式生成文件名来匹配
+        const fname = formatFileName(downloadStore.config.fileNameFormat || '{singer} - {song}', {
+          singer: song.author,
+          song: song.title,
+          aid: song.id
+        })
+        if (existsMap[fname]) {
           song.status = 'existed'  // 标记为已存在
         }
       })
@@ -356,11 +367,15 @@ async function confirmBulkDownload() {
         return { success: false, item, skipped: false }
       }
 
-      const fileName = `${item.author || 'Unknown'} - ${item.title}`.replace(/[/\\?*:|"<>]/g, '_')
+      const fileName = formatFileName(downloadStore.config.fileNameFormat || '{singer} - {song}', {
+        singer: item.author,
+        song: item.title,
+        aid: item.id
+      })
 
       const result = await window.ipcRenderer.invoke('download-song', {
         url,
-        fileName: item.title,
+        fileName: fileName,
         author: item.author,
         basePath: downloadStore.config.downloadPath,
         createAuthorFolder: downloadStore.config.createAuthorFolder,

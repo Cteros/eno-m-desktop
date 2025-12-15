@@ -3,9 +3,9 @@ import { ref, computed } from 'vue'
 
 interface Props {
   downloadPath: string
-  downloadNameFormat: string
-  downloadImageFormat: string
-  downloadSubFormat: string
+  downloadNameFormat?: string
+  downloadImageFormat?: string
+  downloadSubFormat?: string
 }
 
 defineEmits<{
@@ -17,7 +17,11 @@ defineEmits<{
   openDownloadFolder: []
 }>()
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  downloadNameFormat: '{singer} - {song}',
+  downloadImageFormat: 'cover.jpg',
+  downloadSubFormat: '{index}. {singer} - {song}.lrc'
+})
 const showAdvanced = ref(false)
 
 const formatExamples = {
@@ -47,23 +51,17 @@ const nameFormatPlaceholder = computed(() => {
         <p class="text-body-small text-text-tertiary mb-3">下载位置</p>
         <div class="flex gap-2 mb-4">
           <div class="flex-1">
-            <input
-              type="text"
-              :value="downloadPath"
-              readonly
-              class="w-full px-4 py-2 rounded-lg bg-[#282828] border border-[#404040] text-text-secondary text-sm font-mono focus:outline-none"
-            />
+            <input type="text" :value="downloadPath" readonly
+              class="w-full px-4 py-2 rounded-lg bg-[#282828] border border-[#404040] text-text-secondary text-sm font-mono focus:outline-none" />
           </div>
           <button
             class="px-4 py-2 rounded-lg bg-[#ff6b6b]/10 hover:bg-[#ff6b6b]/20 text-[#ff6b6b] font-medium transition-colors"
-            @click="$emit('selectFolder')"
-          >
+            @click="$emit('selectFolder')">
             选择位置
           </button>
           <button
             class="px-4 py-2 rounded-lg bg-[#667eea]/10 hover:bg-[#667eea]/20 text-[#667eea] font-medium transition-colors"
-            @click="$emit('openDownloadFolder')"
-          >
+            @click="$emit('openDownloadFolder')">
             打开文件夹
           </button>
         </div>
@@ -75,13 +73,9 @@ const nameFormatPlaceholder = computed(() => {
           <p class="text-body-small text-text-tertiary">音乐文件命名格式</p>
           <span class="text-xs text-text-tertiary font-mono">{{ formatExamples.name }}</span>
         </div>
-        <input
-          type="text"
-          :value="downloadNameFormat"
-          :placeholder="nameFormatPlaceholder"
+        <input type="text" :value="downloadNameFormat" :placeholder="nameFormatPlaceholder"
           class="w-full px-4 py-2 rounded-lg bg-[#282828] border border-[#404040] text-white text-sm focus:outline-none focus:border-[#667eea]"
-          @input="$emit('update:downloadNameFormat', ($event.target as HTMLInputElement).value)"
-        />
+          @input="$emit('update:downloadNameFormat', ($event.target as HTMLInputElement).value)" />
         <p class="text-xs text-text-tertiary mt-2">支持的占位符: {singer} {song} {album} {aid}</p>
       </div>
 
@@ -89,8 +83,7 @@ const nameFormatPlaceholder = computed(() => {
       <div class="mb-4">
         <button
           class="flex items-center gap-2 text-sm font-medium text-[#667eea] hover:text-[#667eea]/80 transition-colors"
-          @click="showAdvanced = !showAdvanced"
-        >
+          @click="showAdvanced = !showAdvanced">
           <span :class="showAdvanced ? 'i-mingcute:chevron-up-line' : 'i-mingcute:chevron-down-line'" />
           <span>{{ showAdvanced ? '隐藏' : '显示' }}高级选项</span>
         </button>
@@ -103,13 +96,9 @@ const nameFormatPlaceholder = computed(() => {
             <p class="text-body-small text-text-tertiary">封面格式</p>
             <span class="text-xs text-text-tertiary font-mono">{{ formatExamples.image }}</span>
           </div>
-          <input
-            type="text"
-            :value="downloadImageFormat"
-            placeholder="cover.jpg"
+          <input type="text" :value="downloadImageFormat" placeholder="cover.jpg"
             class="w-full px-4 py-2 rounded-lg bg-[#282828] border border-[#404040] text-white text-sm focus:outline-none focus:border-[#667eea]"
-            @input="$emit('update:downloadImageFormat', ($event.target as HTMLInputElement).value)"
-          />
+            @input="$emit('update:downloadImageFormat', ($event.target as HTMLInputElement).value)" />
           <p class="text-xs text-text-tertiary mt-2">默认格式: cover.jpg, cover.png, cover.webp</p>
         </div>
 
@@ -119,13 +108,9 @@ const nameFormatPlaceholder = computed(() => {
             <p class="text-body-small text-text-tertiary">字幕文件命名</p>
             <span class="text-xs text-text-tertiary font-mono">{{ formatExamples.sub }}</span>
           </div>
-          <input
-            type="text"
-            :value="downloadSubFormat"
-            placeholder="{index}. {singer} - {song}.lrc"
+          <input type="text" :value="downloadSubFormat" placeholder="{index}. {singer} - {song}.lrc"
             class="w-full px-4 py-2 rounded-lg bg-[#282828] border border-[#404040] text-white text-sm focus:outline-none focus:border-[#667eea]"
-            @input="$emit('update:downloadSubFormat', ($event.target as HTMLInputElement).value)"
-          />
+            @input="$emit('update:downloadSubFormat', ($event.target as HTMLInputElement).value)" />
           <p class="text-xs text-text-tertiary mt-2">支持占位符: {index} {singer} {song} {album} {aid}</p>
         </div>
       </div>

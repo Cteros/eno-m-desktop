@@ -298,8 +298,9 @@ function handleBiliLogout() {
 
       <!-- 下载设置卡片 -->
       <DownloadSettingsCard :download-path="downloadStore.config.downloadPath || '未设置（使用默认目录）'"
-        :download-name-format="'{singer} - {song}'" :download-image-format="'cover.jpg'"
-        :download-sub-format="'{index}. {singer} - {song}.lrc'" @selectFolder="selectDownloadPath"
+        v-model:download-name-format="downloadStore.config.fileNameFormat"
+        v-model:download-image-format="downloadStore.config.imageNameFormat"
+        v-model:download-sub-format="downloadStore.config.lyricNameFormat" @selectFolder="selectDownloadPath"
         @openDownloadFolder="openDownloadFolder" />
     </div>
   </div>

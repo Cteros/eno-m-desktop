@@ -60,8 +60,8 @@ function getFinalSavePath(
   }
 }
 
-// 检查FFmpeg是否可用
-function checkFFmpeg(): boolean {
+// 获取FFmpeg路径
+function getFFmpegPath(): string | null {
   // 常见的 FFmpeg 可执行文件名
   const ffmpegNames = ['ffmpeg', 'ffmpeg.exe']
 
@@ -80,7 +80,7 @@ function checkFFmpeg(): boolean {
     try {
       execSync(`${name} -version`, { stdio: 'pipe' })
       console.log(`[FFmpeg] 找到 ${name} 在 PATH 中`)
-      return true
+      return name
     } catch {
       // 继续下一个
     }
@@ -89,9 +89,11 @@ function checkFFmpeg(): boolean {
   // 然后尝试常见的安装路径
   for (const path of commonPaths) {
     try {
-      execSync(`"${path}" -version`, { stdio: 'pipe' })
-      console.log(`[FFmpeg] 找到 FFmpeg 在 ${path}`)
-      return true
+      if (fs.existsSync(path)) {
+        execSync(`"${path}" -version`, { stdio: 'pipe' })
+        console.log(`[FFmpeg] 找到 FFmpeg 在 ${path}`)
+        return path
+      }
     } catch {
       // 继续下一个
     }
@@ -99,15 +101,22 @@ function checkFFmpeg(): boolean {
 
   // 最后尝试使用 which 命令查找（macOS/Linux）
   try {
-    execSync('which ffmpeg', { stdio: 'pipe' })
-    console.log('[FFmpeg] 通过 which 命令找到 FFmpeg')
-    return true
+    const result = execSync('which ffmpeg', { encoding: 'utf-8' }).trim()
+    if (result) {
+      console.log('[FFmpeg] 通过 which 命令找到 FFmpeg')
+      return result
+    }
   } catch {
     // 继续
   }
 
   console.log('[FFmpeg] 未找到 FFmpeg')
-  return false
+  return null
+}
+
+// 检查FFmpeg是否可用（兼容旧代码）
+function checkFFmpeg(): boolean {
+  return !!getFFmpegPath()
 }
 
 // 下载文件（流式下载，减少内存占用）
@@ -129,14 +138,15 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
 
 // M4S转MP3
 async function convertM4sToMp3(m4sPath: string, mp3Path: string): Promise<void> {
-  if (!checkFFmpeg()) {
+  const ffmpegPath = getFFmpegPath()
+  if (!ffmpegPath) {
     throw new Error('FFmpeg未安装，请先安装FFmpeg来使用转换功能')
   }
 
   return new Promise((resolve, reject) => {
     try {
       // 使用ffmpeg转换m4s为mp3
-      const command = `ffmpeg -i "${m4sPath}" -q:a 0 -map a "${mp3Path}" -y`
+      const command = `"${ffmpegPath}" -i "${m4sPath}" -q:a 0 -map a "${mp3Path}" -y`
       execSync(command, { stdio: 'pipe' })
       resolve()
     } catch (error: any) {
