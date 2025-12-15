@@ -283,7 +283,7 @@ function handleBiliLogout() {
       </div>
 
       <!-- B站扫码登录卡片 - 优先显示 -->
-      <BiliLoginCard :user="user" @login="handleBiliLogin" @logout="handleBiliLogout" />
+      <!-- <BiliLoginCard :user="user" @login="handleBiliLogin" @logout="handleBiliLogout" /> -->
 
       <!-- 关于应用卡片 -->
       <AppInfoCard :current-version="currentVersion" :latest-version="latestVersion" :release-notes="releaseNotes"

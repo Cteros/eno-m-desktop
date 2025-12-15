@@ -53,7 +53,7 @@ function handleSingerDetail(singerMid) {
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out">
       <!-- 播放按钮悬浮 (可选，如果你想直接播放歌手热门歌曲) -->
       <div
-        class="absolute bottom-2 right-2 w-12 h-12 bg-[#1db954] rounded-full flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:scale-105 hover:bg-[#1ed760] z-10">
+        class="absolute bottom-2 right-2 w-12 h-12 bg-[#1db954] rounded-full flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:scale-105 hover:bg-[#1ed760]">
         <div class="i-mingcute:play-fill text-black text-2xl pl-1" />
       </div>
     </div>
@@ -93,14 +93,14 @@ function handleSingerDetail(singerMid) {
     @click.stop="handleSingerDetail(singerMid)">
     <!-- 背景光晕效果 -->
     <div
-      class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40 z-10 group-hover:to-black/20 transition-all duration-300 rounded-xl pointer-events-none" />
+      class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40 group-hover:to-black/20 transition-all duration-300 rounded-xl pointer-events-none" />
 
     <!-- 装饰背景 -->
     <div
       class="absolute -top-1/4 -right-1/4 w-32 h-32 bg-[#1db954] rounded-full blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500 z-0" />
 
     <!-- 卡片内容 -->
-    <div class="relative flex flex-col items-center justify-between w-full h-full z-20">
+    <div class="relative flex flex-col items-center justify-between w-full h-full">
       <!-- 头像 -->
       <div class="relative w-24 h-24 shadow-lg rounded-full overflow-hidden flex-shrink-0 flex-grow-0">
         <img :src="avatar" alt="singerAvatar"
@@ -126,7 +126,7 @@ function handleSingerDetail(singerMid) {
 
     <!-- 边框光晕效果 -->
     <div
-      class="absolute inset-0 rounded-xl border border-[#1db954] opacity-0 group-hover:opacity-20 transition-opacity duration-300 z-30 pointer-events-none" />
+      class="absolute inset-0 rounded-xl border border-[#1db954] opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none" />
   </div>
 
   <!-- Old List Style (兼容旧的列表样式，如果需要) -->

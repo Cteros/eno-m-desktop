@@ -124,14 +124,14 @@ const isOwner = computed(() => {
       @click="handleCardClick">
       <!-- 背景光晕效果 -->
       <div
-        class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40 z-10 group-hover:to-black/20 transition-all duration-300" />
+        class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40  group-hover:to-black/20 transition-all duration-300" />
 
       <!-- 装饰背景 -->
       <div
         class="absolute -top-1/2 -right-1/2 w-96 h-96 bg-[#1db954] rounded-full blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500 z-0" />
 
       <!-- 卡片内容 -->
-      <div class="relative h-full flex flex-col justify-between p-5 z-20">
+      <div class="relative h-full flex flex-col justify-between p-5 ">
         <!-- 顶部装饰 -->
         <div class="flex items-start justify-between mb-auto">
           <div
@@ -170,7 +170,7 @@ const isOwner = computed(() => {
 
       <!-- 边框光晕效果 -->
       <div
-        class="absolute inset-0 rounded-xl border border-[#1db954] opacity-0 group-hover:opacity-20 transition-opacity duration-300 z-30" />
+        class="absolute inset-0 rounded-xl border border-[#1db954] opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
     </div>
   </div>
 </template>

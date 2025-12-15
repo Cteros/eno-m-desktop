@@ -68,20 +68,12 @@
           <button @click="closeDialog" class="btn btn-secondary">
             {{ updateAvailable && downloading ? '最小化' : '关闭' }}
           </button>
-          <button
-            v-if="!checking && !hasChecked"
-            @click="checkUpdates"
-            class="btn btn-primary"
-            :disabled="checking || downloading"
-          >
+          <button v-if="!checking && !hasChecked" @click="checkUpdates" class="btn btn-primary"
+            :disabled="checking || downloading">
             检查更新
           </button>
-          <button
-            v-else-if="updateAvailable && !downloading"
-            @click="downloadUpdate"
-            class="btn btn-primary"
-            :disabled="downloading"
-          >
+          <button v-else-if="updateAvailable && !downloading" @click="downloadUpdate" class="btn btn-primary"
+            :disabled="downloading">
             立即更新
           </button>
         </div>
@@ -176,7 +168,6 @@ onMounted(async () => {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  z-index: 999;
   animation: slideIn 0.3s ease-out;
 }
 
@@ -185,6 +176,7 @@ onMounted(async () => {
     transform: translateX(400px);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -218,7 +210,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
 }
 
 .update-modal {
@@ -237,6 +228,7 @@ onMounted(async () => {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
