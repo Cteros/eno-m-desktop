@@ -4,6 +4,9 @@ import { useLocalStorage } from '@vueuse/core'
 export interface DownloadConfig {
   downloadPath: string
   createAuthorFolder: boolean
+  ffmpegInstalled: boolean
+  ffmpegVersion: string
+  ffmpegPath: string
 }
 
 export const useDownloadStore = defineStore('download', {
@@ -11,6 +14,9 @@ export const useDownloadStore = defineStore('download', {
     config: useLocalStorage('download-config', {
       downloadPath: '',
       createAuthorFolder: true,
+      ffmpegInstalled: false,
+      ffmpegVersion: '',
+      ffmpegPath: '',
     } as DownloadConfig),
   }),
 
@@ -21,6 +27,13 @@ export const useDownloadStore = defineStore('download', {
     getCreateAuthorFolder(): boolean {
       return this.config.createAuthorFolder
     },
+    getFFmpegInfo(): { installed: boolean; version: string; path: string } {
+      return {
+        installed: this.config.ffmpegInstalled,
+        version: this.config.ffmpegVersion,
+        path: this.config.ffmpegPath,
+      }
+    },
   },
 
   actions: {
@@ -30,9 +43,17 @@ export const useDownloadStore = defineStore('download', {
     setCreateAuthorFolder(value: boolean) {
       this.config.createAuthorFolder = value
     },
+    setFFmpegInfo(info: { installed: boolean; version: string; path: string }) {
+      this.config.ffmpegInstalled = info.installed
+      this.config.ffmpegVersion = info.version
+      this.config.ffmpegPath = info.path
+    },
     resetConfig() {
       this.config.downloadPath = ''
       this.config.createAuthorFolder = true
+      this.config.ffmpegInstalled = false
+      this.config.ffmpegVersion = ''
+      this.config.ffmpegPath = ''
     },
   },
 })

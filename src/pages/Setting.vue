@@ -145,11 +145,21 @@ async function checkFFmpeg() {
     ffmpegAvailable.value = info.found
 
     if (info.found) {
-      Message.show({
-        type: 'success',
-        message: '✓ FFmpeg 已安装',
+      downloadStore.setFFmpegInfo({
+        installed: true,
+        version: info.version,
+        path: info.path
       })
+      // Message.show({
+      //   type: 'success',
+      //   message: '✓ FFmpeg 已安装',
+      // })
     } else {
+      downloadStore.setFFmpegInfo({
+        installed: false,
+        version: '',
+        path: ''
+      })
       Message.show({
         type: 'error',
         message: '✗ 未找到 FFmpeg，请先安装',
@@ -238,7 +248,16 @@ async function openDownloadFolder() {
 // 组件挂载时初始化
 onMounted(() => {
   initVersion()
-  checkFFmpeg()
+  if (downloadStore.config.ffmpegInstalled) {
+    ffmpegInfo.value = {
+      found: true,
+      version: downloadStore.config.ffmpegVersion,
+      path: downloadStore.config.ffmpegPath
+    }
+    ffmpegAvailable.value = true
+  } else {
+    checkFFmpeg()
+  }
   refreshBiliUser()
 })
 
