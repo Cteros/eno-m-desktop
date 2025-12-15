@@ -51,7 +51,7 @@
     "@meanc/webext-fetch": "^0.0.3",
     "@types/howler": "^2.2.12",
     "@types/webextension-polyfill": "^0.10.7",
-    "@vueuse/core": "^13.9.0",
+    "@vueuse/core": "^14.1.0",
     "@vueuse/math": "^13.9.0",
     "@vueuse/motion": "^3.0.3",
     "classnames": "^2.5.1",
