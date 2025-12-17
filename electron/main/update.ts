@@ -1,5 +1,7 @@
 import { ipcMain, app, BrowserWindow } from 'electron'
-import { autoUpdater } from 'electron-updater'
+import electronUpdater from 'electron-updater'
+
+const { autoUpdater } = electronUpdater
 
 // 配置 autoUpdater
 autoUpdater.autoDownload = false
