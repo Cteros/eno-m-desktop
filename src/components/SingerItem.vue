@@ -56,12 +56,9 @@ function handleSingerDetail(singerMid) {
 <template>
   <!-- Card Style (Spotify 风格卡片) -->
   <div v-if="type === 'card'" :class="cn(
-    'flex flex-col items-center p-4 rounded-md bg-[#181818] hover:bg-[#282828] transition-colors duration-300 cursor-pointer group w-40 flex-shrink-0',
+    'flex flex-col items-center p-4 rounded-md bg-[#181818] hover:bg-[#282828] transition-all duration-300 cursor-pointer group w-40 flex-shrink-0 animate-slide-in-up hover:scale-105',
     props.class
-  )" v-motion :initial="{ opacity: 0, y: 20 }"
-    :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 250, damping: 25 } }"
-    :hover="{ scale: 1.05, transition: { type: 'spring', stiffness: 300, damping: 20 } }"
-    @click.stop="handleSingerDetail(singerMid)">
+  )" @click.stop="handleSingerDetail(singerMid)">
     <template>
       <div class="relative w-full aspect-square mb-4 shadow-lg rounded-md overflow-hidden">
         <img :src="avatar" alt="singerAvatar"
@@ -86,12 +83,9 @@ function handleSingerDetail(singerMid) {
 
   <!-- Simple List Style (侧边栏简单列表) -->
   <div v-else-if="type === 'simple'" :class="cn(
-    'flex items-center gap-3 p-2 rounded hover:bg-[#1a1a1a] cursor-pointer transition-colors group',
+    'flex items-center gap-3 p-2 rounded hover:bg-[#1a1a1a] cursor-pointer transition-all duration-300 group animate-slide-in-left hover:scale-102',
     props.class
-  )" v-motion :initial="{ opacity: 0, x: -10 }"
-    :enter="{ opacity: 1, x: 0, transition: { type: 'spring', stiffness: 300, damping: 25 } }"
-    :hover="{ scale: 1.02, transition: { type: 'spring', stiffness: 400, damping: 15 } }"
-    @click.stop="handleSingerDetail(singerMid)">
+  )" @click.stop="handleSingerDetail(singerMid)">
     <template v-if="info">
       <img :src="avatar" class="w-12 h-12 rounded-md object-cover">
       <div class="flex flex-col overflow-hidden">
@@ -110,12 +104,9 @@ function handleSingerDetail(singerMid) {
 
   <!-- Modern Card Style (现代高级卡片，匹配媒体库) -->
   <div v-else-if="type === 'card-modern'" :class="cn(
-    'relative h-56 w-full flex flex-col items-center justify-between p-5 rounded-xl bg-gradient-to-b from-[#282828] to-[#1a1a1a] hover:bg-gradient-to-b hover:from-[#333333] hover:to-[#1f1f1f] transition-colors duration-300 cursor-pointer group shadow-lg hover:shadow-2xl overflow-hidden',
+    'relative h-56 w-full flex flex-col items-center justify-between p-5 rounded-xl bg-gradient-to-b from-[#282828] to-[#1a1a1a] hover:bg-gradient-to-b hover:from-[#333333] hover:to-[#1f1f1f] transition-all duration-300 cursor-pointer group shadow-lg hover:shadow-2xl overflow-hidden animate-slide-in-up hover:scale-103',
     props.class
-  )" v-motion :initial="{ opacity: 0, scale: 0.95 }"
-    :enter="{ opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 250, damping: 25 } }"
-    :hover="{ scale: 1.03, transition: { type: 'spring', stiffness: 300, damping: 20 } }"
-    @click.stop="handleSingerDetail(singerMid)">
+  )" @click.stop="handleSingerDetail(singerMid)">
     <template v-if="info">
       <!-- 背景光晕效果 -->
       <div
@@ -165,12 +156,9 @@ function handleSingerDetail(singerMid) {
 
   <!-- Old List Style (兼容旧的列表样式，如果需要) -->
   <div v-else :class="cn(
-    'flex flex-shrink-0 items-center justify-between w-80 h-20 rounded-lg px-4 bg-[#181818] hover:bg-[#282828] transition-colors duration-300 cursor-pointer group',
+    'flex flex-shrink-0 items-center justify-between w-80 h-20 rounded-lg px-4 bg-[#181818] hover:bg-[#282828] transition-all duration-300 cursor-pointer group animate-slide-in-left hover:scale-102',
     props.class
-  )" v-motion :initial="{ opacity: 0, x: -20 }"
-    :enter="{ opacity: 1, x: 0, transition: { type: 'spring', stiffness: 250, damping: 25 } }"
-    :hover="{ scale: 1.02, transition: { type: 'spring', stiffness: 400, damping: 25 } }"
-    @click.stop="handleSingerDetail(singerMid)">
+  )" @click.stop="handleSingerDetail(singerMid)">
     <template v-if="info">
       <div class="flex items-center space-x-4">
         <img :src="avatar" alt="singerAvatar" class="w-13 h-13 rounded-full object-cover shadow-sm">
@@ -201,3 +189,35 @@ function handleSingerDetail(singerMid) {
     </template>
   </div>
 </template>
+
+<style scoped>
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-up {
+  animation: slideInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+</style>
