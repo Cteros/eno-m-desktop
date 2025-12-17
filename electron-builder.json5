@@ -36,7 +36,8 @@
   "mac": {
     "icon": "public/512px.png",
     "target": [
-      "dmg"
+      "dmg",
+      "zip"
     ],
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
   },
