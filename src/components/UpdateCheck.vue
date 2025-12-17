@@ -91,7 +91,7 @@
         <button v-else-if="updateAvailable && !downloading && !downloaded" @click="downloadUpdate"
           class="px-4 py-1.5 rounded bg-[#667eea] hover:bg-[#5a6fd6] text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="downloading">
-          立即更新
+          {{ isMac ? '前往下载' : '立即更新' }}
         </button>
 
         <button v-else-if="downloaded" @click="quitAndInstall"
@@ -125,6 +125,8 @@ const downloadProgress = ref(0)
 const checkError = ref('')
 const showDialog = ref(false)
 const hasChecked = ref(false)
+const downloadUrl = ref('')
+const isMac = ref(navigator.userAgent.includes('Mac'))
 
 const emit = defineEmits(['update-status'])
 
@@ -148,6 +150,7 @@ async function checkUpdates() {
       latestVersion.value = result.latestVersion
       releaseNotes.value = result.releaseNotes || ''
       updateAvailable.value = result.updateAvailable
+      downloadUrl.value = result.downloadUrl || ''
       hasChecked.value = true
 
       emit('update-status', {
@@ -197,7 +200,7 @@ async function downloadUpdate() {
     (window as any).ipcRenderer?.on('update-downloaded', onUpdateDownloaded);
     (window as any).ipcRenderer?.on('update-error', onUpdateError);
 
-    const result = await (window as any).ipcRenderer?.invoke('download-and-install-update')
+    const result = await (window as any).ipcRenderer?.invoke('download-and-install-update', downloadUrl.value)
 
     if (!result?.success) {
       checkError.value = result?.error || '下载更新失败'

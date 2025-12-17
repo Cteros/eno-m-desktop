@@ -1,4 +1,4 @@
-import { ipcMain, app, BrowserWindow } from 'electron'
+import { ipcMain, app, BrowserWindow, shell } from 'electron'
 import electronUpdater from 'electron-updater'
 
 const { autoUpdater } = electronUpdater
@@ -44,6 +44,7 @@ export function setupUpdateHandlers() {
           : (Array.isArray(updateInfo.releaseNotes)
             ? updateInfo.releaseNotes.map((n: any) => n.note).join('\n')
             : ''),
+        downloadUrl: `https://github.com/cloudflypeng/eno-m-desktop/releases/tag/v${updateInfo.version}`
       }
     } catch (error: any) {
       console.error('Check for updates error:', error)
@@ -57,8 +58,13 @@ export function setupUpdateHandlers() {
   })
 
   // 下载并安装更新
-  ipcMain.handle('download-and-install-update', async () => {
+  ipcMain.handle('download-and-install-update', async (event, downloadUrl) => {
     try {
+      if (process.platform === 'darwin') {
+        await shell.openExternal(downloadUrl || 'https://github.com/cloudflypeng/eno-m-desktop/releases/latest')
+        return { success: true, message: '已打开下载页面' }
+      }
+      
       // 开始下载
       await autoUpdater.downloadUpdate()
       return { success: true, message: '开始下载更新' }
