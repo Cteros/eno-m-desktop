@@ -126,9 +126,13 @@ const checkError = ref('')
 const showDialog = ref(false)
 const hasChecked = ref(false)
 
+const emit = defineEmits(['update-status'])
+
 defineExpose({
   updateAvailable,
-  showUpdateDialog
+  showUpdateDialog,
+  currentVersion,
+  latestVersion
 })
 
 // 检查更新
@@ -145,6 +149,13 @@ async function checkUpdates() {
       releaseNotes.value = result.releaseNotes || ''
       updateAvailable.value = result.updateAvailable
       hasChecked.value = true
+
+      emit('update-status', {
+        updateAvailable: result.updateAvailable,
+        currentVersion: result.currentVersion,
+        latestVersion: result.latestVersion,
+        releaseNotes: result.releaseNotes
+      })
     } else {
       checkError.value = result?.error || '检查更新失败'
     }

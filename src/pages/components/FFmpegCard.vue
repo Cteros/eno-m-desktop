@@ -39,81 +39,73 @@ const statusColor = computed(() => {
 </script>
 
 <template>
-  <div class="card-base card-hover card-interactive rounded-2xl p-8 mb-8">
-    <div class="card-overlay rounded-2xl" />
-    <div class="card-glow" />
-    <div class="relative z-20">
-      <div class="flex items-center gap-3 mb-8">
-        <div class="w-2 h-8 bg-gradient-to-b from-[#667eea] to-transparent rounded-full" />
-        <h2 class="text-heading-1">FFmpeg 工具</h2>
+  <div class="border border-white/10 rounded-xl p-6 mb-6 hover:border-white/20 transition-colors duration-300">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="i-mingcute:tool-fill text-2xl text-[#667eea]" />
+      <h2 class="text-lg font-bold text-white">FFmpeg 工具</h2>
+    </div>
+
+    <!-- 状态信息 -->
+    <div class="space-y-6">
+      <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-1">
+          <span class="text-sm text-gray-400">安装状态</span>
+          <span :class="statusColor" class="text-base font-medium">{{ statusText }}</span>
+        </div>
+        <button :disabled="ffmpegLoading"
+          class="px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-medium transition-colors"
+          @click="$emit('checkFFmpeg')">
+          {{ ffmpegLoading ? '检测中...' : '重新检测' }}
+        </button>
       </div>
 
-      <!-- 状态信息 -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <p class="text-body-small text-text-tertiary mb-2">安装状态</p>
-            <p :class="statusColor" class="text-body font-medium">
-              {{ statusText }}
-            </p>
-          </div>
-          <button
-            :disabled="ffmpegLoading"
-            class="px-4 py-2 rounded-lg bg-[#667eea]/10 hover:bg-[#667eea]/20 text-[#667eea] font-medium transition-colors text-sm"
-            @click="$emit('checkFFmpeg')"
-          >
-            {{ ffmpegLoading ? '检测中...' : '重新检测' }}
-          </button>
+      <!-- 版本信息 -->
+      <div v-if="isInstalled" class="space-y-4">
+        <div class="flex flex-col gap-1">
+          <span class="text-sm text-gray-400">版本</span>
+          <span class="text-base font-mono text-white">{{ ffmpegInfo?.version || '未知' }}</span>
         </div>
+        <div class="flex flex-col gap-1">
+          <span class="text-sm text-gray-400">路径</span>
+          <div class="p-3 rounded-lg bg-white/5 border border-white/5">
+            <p class="text-xs text-gray-400 font-mono break-all">{{ ffmpegInfo?.path || '未知' }}</p>
+          </div>
+        </div>
+      </div>
 
-        <!-- 版本信息 -->
-        <div v-if="isInstalled" class="mb-4 space-y-2">
-          <div>
-            <p class="text-body-small text-text-tertiary mb-1">版本</p>
-            <p class="text-body text-white font-mono">{{ ffmpegInfo?.version || '未知' }}</p>
-          </div>
-          <div>
-            <p class="text-body-small text-text-tertiary mb-1">路径</p>
-            <p class="text-xs text-text-secondary font-mono break-all bg-[#282828] p-2 rounded">
-              {{ ffmpegInfo?.path || '未知' }}
-            </p>
-          </div>
+      <!-- 下载进度 -->
+      <div v-if="downloadingFfmpeg" class="space-y-2">
+        <div class="flex items-center justify-between text-xs text-gray-400">
+          <span>下载进度</span>
+          <span>{{ Math.round(downloadProgress) }}%</span>
         </div>
+        <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div class="h-full bg-[#667eea] transition-all duration-300" :style="{ width: downloadProgress + '%' }" />
+        </div>
+      </div>
 
-        <!-- 下载进度 -->
-        <div v-if="downloadingFfmpeg" class="mb-4">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-sm text-text-tertiary">下载进度</span>
-            <span class="text-sm text-white">{{ Math.round(downloadProgress) }}%</span>
-          </div>
-          <div class="w-full h-2 bg-[#282828] rounded-full overflow-hidden">
-            <div class="h-full bg-[#667eea] transition-all" :style="{ width: downloadProgress + '%' }" />
-          </div>
-        </div>
+      <!-- 下载按钮 -->
+      <div v-if="!isInstalled && !downloadingFfmpeg">
+        <button
+          class="w-full py-2.5 rounded-lg bg-[#667eea] hover:bg-[#5a6fd6] text-white font-medium transition-colors flex items-center justify-center gap-2 text-sm"
+          @click="$emit('downloadFFmpeg')">
+          <div class="i-mingcute:download-line text-lg" />
+          <span>下载 FFmpeg</span>
+        </button>
+      </div>
 
-        <!-- 下载按钮 -->
-        <div v-if="!isInstalled && !downloadingFfmpeg" class="mb-4">
-          <button class="btn-primary w-full" @click="$emit('downloadFFmpeg')">
-            <div class="flex items-center justify-center gap-2">
-              <span class="i-mingcute:download-line" />
-              <span>下载 FFmpeg</span>
-            </div>
-          </button>
-        </div>
-
-        <!-- 错误信息 -->
-        <div v-if="ffmpegError" class="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-          <p class="text-xs text-red-400">{{ ffmpegError }}</p>
-        </div>
+      <!-- 错误信息 -->
+      <div v-if="ffmpegError" class="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+        <p class="text-xs text-red-400">{{ ffmpegError }}</p>
       </div>
 
       <!-- 说明信息 -->
-      <div class="p-4 rounded-lg bg-[#667eea]/5 border border-[#667eea]/10">
+      <div class="p-4 rounded-lg bg-white/5 border border-white/5">
         <div class="flex gap-3">
           <div class="i-mingcute:information-line text-[#667eea] text-lg flex-shrink-0 mt-0.5" />
           <div class="text-sm">
-            <p class="font-medium text-white mb-2">关于 FFmpeg：</p>
-            <ul class="space-y-1 text-text-secondary text-xs">
+            <p class="font-medium text-white mb-2">关于 FFmpeg</p>
+            <ul class="space-y-1 text-gray-400 text-xs">
               <li>• FFmpeg 是一个强大的多媒体框架，用于处理音视频</li>
               <li>• 本应用使用 FFmpeg 进行音频转码和处理</li>
               <li>• 系统未检测到 FFmpeg 时，可点击下载自动安装</li>
@@ -123,6 +115,5 @@ const statusColor = computed(() => {
         </div>
       </div>
     </div>
-    <div class="card-border-glow rounded-2xl" />
   </div>
 </template>

@@ -9,17 +9,6 @@ import DownloadSettingsCard from './components/DownloadSettingsCard.vue'
 
 const downloadStore = useDownloadStore()
 
-// 更新检查状态
-const checkingUpdate = ref(false)
-const downloadingUpdate = ref(false)
-const downloadProgress = ref(0)
-const updateAvailable = ref(false)
-const currentVersion = ref('')
-const latestVersion = ref('')
-const releaseNotes = ref('')
-const updateError = ref('')
-const updateChecked = ref(false)
-
 // FFmpeg 检查状态
 const ffmpegAvailable = ref<boolean | null>(null)
 const ffmpegChecking = ref(false)
@@ -46,95 +35,6 @@ async function refreshBiliUser() {
   }
 }
 
-// 检查更新
-async function checkForUpdates() {
-  checkingUpdate.value = true
-  updateError.value = ''
-  updateChecked.value = false
-
-  try {
-    const result = await (window as any).ipcRenderer?.invoke('check-for-updates')
-
-    if (result?.success) {
-      currentVersion.value = result.currentVersion
-      latestVersion.value = result.latestVersion
-      releaseNotes.value = result.releaseNotes || ''
-      updateAvailable.value = result.updateAvailable
-      updateChecked.value = true
-
-      if (result.updateAvailable) {
-        Message.show({
-          type: 'success',
-          message: `发现新版本 ${result.latestVersion}`,
-        })
-      } else {
-        Message.show({
-          type: 'info',
-          message: '已是最新版本',
-        })
-      }
-    } else {
-      updateError.value = result?.error || '检查更新失败'
-      Message.show({
-        type: 'error',
-        message: updateError.value,
-      })
-    }
-  } catch (error: any) {
-    updateError.value = error.message || '检查更新出错'
-    Message.show({
-      type: 'error',
-      message: updateError.value,
-    })
-  } finally {
-    checkingUpdate.value = false
-  }
-}
-
-// 下载并安装更新
-async function downloadAndInstallUpdate() {
-  downloadingUpdate.value = true
-  updateError.value = ''
-  downloadProgress.value = 0
-
-  try {
-    const result = await (window as any).ipcRenderer?.invoke('download-and-install-update')
-
-    if (result?.success) {
-      Message.show({
-        type: 'success',
-        message: '更新已下载，安装程序即将启动',
-      })
-    } else {
-      updateError.value = result?.error || '下载更新失败'
-      Message.show({
-        type: 'error',
-        message: updateError.value,
-      })
-    }
-  } catch (error: any) {
-    updateError.value = error.message || '下载更新出错'
-    Message.show({
-      type: 'error',
-      message: updateError.value,
-    })
-  } finally {
-    downloadingUpdate.value = false
-  }
-}
-
-// 获取应用版本
-async function initVersion() {
-  try {
-    const versionInfo = await (window as any).ipcRenderer?.invoke('get-app-version')
-    if (versionInfo) {
-      currentVersion.value = `v${versionInfo.version}`
-    }
-  } catch (error) {
-    console.error('Failed to get app version:', error)
-  }
-}
-
 // 检查 FFmpeg
 async function checkFFmpeg() {
   ffmpegChecking.value = true
@@ -150,10 +50,6 @@ async function checkFFmpeg() {
         version: info.version,
         path: info.path
       })
-      // Message.show({
-      //   type: 'success',
-      //   message: '✓ FFmpeg 已安装',
-      // })
     } else {
       downloadStore.setFFmpegInfo({
         installed: false,
@@ -247,7 +143,6 @@ async function openDownloadFolder() {
 
 // 组件挂载时初始化
 onMounted(() => {
-  initVersion()
   if (downloadStore.config.ffmpegInstalled) {
     ffmpegInfo.value = {
       found: true,
@@ -273,35 +168,34 @@ function handleBiliLogout() {
 </script>
 
 <template>
-  <div class="page-inner relative">
+  <div class="relative px-8 py-6">
     <!-- 内容区域 -->
-    <div class="relative z-10 max-w-4xl">
+    <div class="relative z-10 max-w-5xl mx-auto">
       <!-- 页面标题 -->
-      <div class="mb-12 mt-4">
-        <h1 class="text-display mb-2">设置</h1>
-        <p class="text-body-small">自定义你的下载和应用配置</p>
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white mb-2">设置</h1>
+        <p class="text-sm text-gray-400">自定义你的下载和应用配置</p>
       </div>
 
       <!-- B站扫码登录卡片 - 优先显示 -->
       <!-- <BiliLoginCard :user="user" @login="handleBiliLogin" @logout="handleBiliLogout" /> -->
 
-      <!-- 关于应用卡片 -->
-      <AppInfoCard :current-version="currentVersion" :latest-version="latestVersion" :release-notes="releaseNotes"
-        :update-available="updateAvailable" :update-checked="updateChecked" :checking-update="checkingUpdate"
-        :downloading-update="downloadingUpdate" :download-progress="downloadProgress" :update-error="updateError"
-        @checkUpdates="checkForUpdates" @downloadUpdate="downloadAndInstallUpdate" />
+      <div class="grid grid-cols-1 gap-6">
+        <!-- 关于应用卡片 -->
+        <AppInfoCard />
 
-      <!-- FFmpeg 工具卡片 -->
-      <FFmpegCard :ffmpeg-info="ffmpegInfo" :ffmpeg-loading="ffmpegChecking" :ffmpeg-error="ffmpegError"
-        :downloading-ffmpeg="downloadingFFmpeg" :download-progress="ffmpegDownloadProgress" @checkFFmpeg="checkFFmpeg"
-        @downloadFFmpeg="downloadFFmpeg" />
+        <!-- FFmpeg 工具卡片 -->
+        <FFmpegCard :ffmpeg-info="ffmpegInfo" :ffmpeg-loading="ffmpegChecking" :ffmpeg-error="ffmpegError"
+          :downloading-ffmpeg="downloadingFFmpeg" :download-progress="ffmpegDownloadProgress" @checkFFmpeg="checkFFmpeg"
+          @downloadFFmpeg="downloadFFmpeg" />
 
-      <!-- 下载设置卡片 -->
-      <DownloadSettingsCard :download-path="downloadStore.config.downloadPath || '未设置（使用默认目录）'"
-        v-model:download-name-format="downloadStore.config.fileNameFormat"
-        v-model:download-image-format="downloadStore.config.imageNameFormat"
-        v-model:download-sub-format="downloadStore.config.lyricNameFormat" @selectFolder="selectDownloadPath"
-        @openDownloadFolder="openDownloadFolder" />
+        <!-- 下载设置卡片 -->
+        <DownloadSettingsCard :download-path="downloadStore.config.downloadPath || '未设置（使用默认目录）'"
+          v-model:download-name-format="downloadStore.config.fileNameFormat"
+          v-model:download-image-format="downloadStore.config.imageNameFormat"
+          v-model:download-sub-format="downloadStore.config.lyricNameFormat" @selectFolder="selectDownloadPath"
+          @openDownloadFolder="openDownloadFolder" />
+      </div>
     </div>
   </div>
 </template>
