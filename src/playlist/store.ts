@@ -64,7 +64,9 @@ export const usePlaylistStore = defineStore("playlist", {
         userInfo: {} as any,
         // BLBL 收藏夹列表缓存
         favList: [] as CollectionItem[],
-        collectedFavList: [] as CollectionItem[]
+        collectedFavList: [] as CollectionItem[],
+        // 收藏夹详情缓存 (用于封面等)
+        favInfoCache: useLocalStorage("favInfoCache", {} as Record<string, any>),
     }),
     actions: {
         startAddSong(song: song) {
@@ -107,9 +109,52 @@ export const usePlaylistStore = defineStore("playlist", {
 
                 const collectedRes = await invokeBiliApi(BLBL.GET_COLLECTED_FAV_LIST, { up_mid: mid });
                 this.collectedFavList = collectedRes.data.list || [];
+
+                // 获取列表后，开始后台获取封面
+                this.fetchFavCovers();
             } catch (error) {
                 console.error('Failed to fetch fav lists:', error);
             }
+        },
+        // 获取单个收藏夹详情
+        async fetchFavInfo(mediaId: string | number) {
+            const id = String(mediaId);
+            // 如果已有缓存且有封面，跳过
+            if (this.favInfoCache[id]?.cover) return;
+
+            try {
+                const res = await invokeBiliApi(BLBL.GET_FAV_INFO, { media_id: id });
+                if (res.data?.info) {
+                    this.favInfoCache[id] = res.data.info;
+                }
+            } catch (error) {
+                console.warn(`Failed to fetch fav info for ${id}:`, error);
+            }
+        },
+        // 批量获取封面 (低并发)
+        async fetchFavCovers() {
+            const allFavs = [...this.favList, ...this.collectedFavList];
+            const pendingFavs = allFavs.filter(fav => !this.favInfoCache[String(fav.id)]?.cover);
+
+            if (pendingFavs.length === 0) return;
+
+            // 并发控制
+            const concurrency = 2;
+            const queue = [...pendingFavs];
+
+            const worker = async () => {
+                while (queue.length > 0) {
+                    const fav = queue.shift();
+                    if (!fav) break;
+
+                    await this.fetchFavInfo(fav.id);
+                    // 随机延迟 500-1500ms 防止风控
+                    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+                }
+            };
+
+            const workers = Array(Math.min(concurrency, queue.length)).fill(null).map(() => worker());
+            await Promise.all(workers);
         },
         // 添加歌曲到 BLBL 收藏夹
         async addSongToFav(mediaId: string | number) {

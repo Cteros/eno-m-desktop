@@ -115,6 +115,12 @@ async function handlePlayClick(e: Event) {
 const isOwner = computed(() => {
   return userInfo.value && userInfo.value.mid && String(userInfo.value.mid) === String(props.fav.mid)
 })
+
+// 获取封面
+const cover = computed(() => {
+  const id = String(props.fav.id)
+  return PLStore.favInfoCache[id]?.cover || ''
+})
 </script>
 
 <template>
@@ -122,22 +128,31 @@ const isOwner = computed(() => {
     <div
       class="flex-1 group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 bg-gradient-to-b from-[#282828] to-[#1a1a1a] hover:bg-gradient-to-b hover:from-[#333333] hover:to-[#1f1f1f] shadow-lg hover:shadow-2xl"
       @click="handleCardClick">
+
+      <!-- 封面背景 -->
+      <div v-if="cover" class="absolute inset-0 z-0">
+        <img :src="cover"
+          class="w-full h-full object-cover opacity-30 group-hover:opacity-40 transition-opacity duration-500 blur-sm scale-110" />
+        <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-[#181818]/80 to-[#181818] z-10" />
+      </div>
+
       <!-- 背景光晕效果 -->
       <div
-        class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40  group-hover:to-black/20 transition-all duration-300" />
+        class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40  group-hover:to-black/20 transition-all duration-300 z-10" />
 
       <!-- 装饰背景 -->
       <div
         class="absolute -top-1/2 -right-1/2 w-96 h-96 bg-[#1db954] rounded-full blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500 z-0" />
 
       <!-- 卡片内容 -->
-      <div class="relative h-full flex flex-col justify-between p-5 ">
+      <div class="relative h-full flex flex-col justify-between p-5 z-20">
         <!-- 顶部装饰 -->
         <div class="flex items-start justify-between mb-auto">
           <div
-            class="w-12 h-12 rounded-full bg-gradient-to-br from-[#1db954] to-[#1aa34a] flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
-            <!-- 根据类型显示不同图标 -->
-            <div class="i-mingcute:folder-fill text-white text-xl" />
+            class="w-12 h-12 rounded-full bg-gradient-to-br from-[#1db954] to-[#1aa34a] flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300 flex-shrink-0 overflow-hidden">
+            <!-- 如果有封面，显示小图，否则显示图标 -->
+            <img v-if="cover" :src="cover" class="w-full h-full object-cover" />
+            <div v-else class="i-mingcute:folder-fill text-white text-xl" />
           </div>
           <div class="flex flex-col items-end gap-1 ml-2">
             <div class="text-gray-400 text-xs font-medium">

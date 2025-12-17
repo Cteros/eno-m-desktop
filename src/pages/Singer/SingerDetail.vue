@@ -15,6 +15,7 @@ import { formatFileName } from '~/utils/filename'
 import { average } from 'color.js'
 import BulkDownloadDialog from '~/components/BulkDownloadDialog.vue'
 import { useUIStore } from '@/store/uiStore'
+import DynamicHeader from '~/components/DynamicHeader.vue'
 
 const route = useRoute()
 const PLstore = usePlaylistStore()
@@ -452,33 +453,10 @@ function stopBulkDownload() {
   <!-- 页面主容器 -->
   <section ref="contentRef" class="h-[calc(100vh-170px)] overflow-auto bg-[#121212]">
     <!-- 动态头部区域 -->
-    <div class="shrink-0 top-0 absolute z-20 w-full need-ease overflow-hidden" :class="isScrolled
-      ? 'h-[72px] bg-[#121212]/95 backdrop-blur-xl'
-      : 'h-[320px] bg-transparent'">
-
-      <!-- 头像 -->
-      <div class="absolute z-20 overflow-hidden need-ease" :class="isScrolled
-        ? 'left-4 top-3 w-12 h-12 rounded-md'
-        : 'left-8 top-10 w-44 h-44 rounded-2xl'">
-        <!-- 顶部清晰层 -->
-        <img :src="info?.face" class="relative w-full h-full object-cover shadow-2xl z-10 need-ease">
-      </div>
-
-      <!-- 展开状态的信息 (名字,) -->
-      <div class="absolute right-8 flex flex-col gap-4   origin-left need-ease"
-        :class="isScrolled ? ' pointer-events-none scale-40 top-3 left-20' : 'text-lg top-32 left-55'">
-        <!-- 名字 -->
-        <h1 class="text-5xl font-black text-white tracking-tight flex items-center gap-4 group cursor-pointer">
-          {{ info?.name }}
-          <button @click="openSingerPage" title="在新窗口打开歌手主页"
-            class="text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100">
-            <div class="i-mingcute:external-link-line text-2xl" />
-          </button>
-        </h1>
-      </div>
-      <!-- 统计 & 关注按钮 -->
-      <div class="flex items-center gap-6 text-sm text-gray-300 font-medium mt-2 absolute left-57 bottom-25 need-ease"
-        :class="isScrolled ? 'translate-y-100 pointer-events-none scale-95' : 'translate-y-0 scale-100'">
+    <DynamicHeader :img-src="info?.face" :title="info?.name" :color="headerColor" :is-scrolled="isScrolled"
+      v-model:keyword="keyword" @play="handlePlayUser" @search="getSongs({ mid: currentMid, keyword })"
+      @open-external="openSingerPage">
+      <template #actions>
         <!-- 歌曲数量 -->
         <div class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors"
           @click="prepareBulkDownload">
@@ -493,31 +471,9 @@ function stopBulkDownload() {
           <div :class="isFollowed ? 'i-mingcute:check-line' : 'i-mingcute:add-line'" />
           <span>{{ isFollowed ? '已关注' : '关注' }}</span>
         </button>
-      </div>
+      </template>
+    </DynamicHeader>
 
-      <!-- 播放按钮 绝对定位过去的-->
-      <div class="absolute   need-ease z-1" :class="isScrolled
-        ? 'right-4 top-1/2 -translate-y-1/2 scale-75'
-        : 'right-8 top-24 scale-100'">
-        <button
-          class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform"
-          :style="{ backgroundColor: headerColor }" @click="handlePlayUser" title="播放全部">
-          <div class="i-mingcute:play-fill text-3xl text-black ml-1" />
-        </button>
-      </div>
-
-      <!-- 搜索栏 -->
-      <div class="absolute bottom-6 left-8 right-8 max-w-md need-ease"
-        :class="isScrolled ? 'opacity-0 translate-y-10 pointer-events-none' : 'opacity-100 translate-y-0'">
-        <div class="relative group">
-          <div
-            class="i-mingcute:search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-white transition-colors" />
-          <input v-model="keyword" placeholder="搜索歌曲..."
-            class="w-full h-10 bg-[#ffffff1a] hover:bg-[#ffffff2a] focus:bg-[#333] rounded-lg pl-10 pr-4 text-sm text-white outline-none  border border-transparent focus:border-[#1db954]"
-            @keyup.enter="getSongs({ mid: currentMid, keyword })" />
-        </div>
-      </div>
-    </div>
     <div class="w-full h-full flex flex-col relative ease-in-out" :class="isScrolled ? 'pt-[72px]' : 'pt-[320px]'">
       <!-- 歌曲列表标题 -->
       <div
