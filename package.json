@@ -1,6 +1,6 @@
 {
   "name": "eno-m-desktop",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "main": "dist-electron/main/index.js",
   "description": "eno-m 的桌面版本",
   "author": "meanc <cloudflypeng@gmail.com>",
@@ -56,6 +56,7 @@
     "@vueuse/motion": "^3.0.3",
     "classnames": "^2.5.1",
     "color.js": "^1.2.0",
+    "electron-updater": "^6.6.2",
     "howler": "^2.2.4",
     "html-to-image": "^1.11.13",
     "lodash": "^4.17.21",

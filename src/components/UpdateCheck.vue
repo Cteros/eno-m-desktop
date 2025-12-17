@@ -1,7 +1,7 @@
 <template>
   <div class="update-check">
     <!-- 更新通知按钮 -->
-    <div v-if="updateAvailable" class="update-notification">
+    <div v-if="updateAvailable && !customTrigger" class="update-notification">
       <button @click="showUpdateDialog" class="update-btn">
         🔄 有新版本可用 ({{ latestVersion }})
       </button>
@@ -61,6 +61,10 @@
               </div>
               <p class="progress-text">{{ downloadProgress }}%</p>
             </div>
+
+            <div v-if="downloaded" class="download-complete">
+              <p class="success-text">✓ 更新已下载完毕，请重启应用以安装</p>
+            </div>
           </div>
         </div>
 
@@ -72,9 +76,12 @@
             :disabled="checking || downloading">
             检查更新
           </button>
-          <button v-else-if="updateAvailable && !downloading" @click="downloadUpdate" class="btn btn-primary"
-            :disabled="downloading">
+          <button v-else-if="updateAvailable && !downloading && !downloaded" @click="downloadUpdate"
+            class="btn btn-primary" :disabled="downloading">
             立即更新
+          </button>
+          <button v-else-if="downloaded" @click="quitAndInstall" class="btn btn-primary">
+            重启并安装
           </button>
         </div>
       </div>
@@ -83,7 +90,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const props = defineProps({
+  customTrigger: {
+    type: Boolean,
+    default: false
+  }
+})
 
 const updateAvailable = ref(false)
 const currentVersion = ref('')
@@ -91,10 +105,16 @@ const latestVersion = ref('')
 const releaseNotes = ref('')
 const checking = ref(false)
 const downloading = ref(false)
+const downloaded = ref(false)
 const downloadProgress = ref(0)
 const checkError = ref('')
 const showDialog = ref(false)
 const hasChecked = ref(false)
+
+defineExpose({
+  updateAvailable,
+  showUpdateDialog
+})
 
 // 检查更新
 async function checkUpdates() {
@@ -120,26 +140,55 @@ async function checkUpdates() {
   }
 }
 
+// 监听下载进度
+const onDownloadProgress = (_event: any, progressObj: any) => {
+  downloadProgress.value = Math.round(progressObj.percent)
+}
+
+const onUpdateDownloaded = () => {
+  downloading.value = false
+  downloaded.value = true
+}
+
+const onUpdateError = (_event: any, message: string) => {
+  checkError.value = message
+  downloading.value = false
+}
+
+// 重启并安装
+async function quitAndInstall() {
+  await (window as any).ipcRenderer?.invoke('quit-and-install')
+}
+
 // 下载并安装更新
 async function downloadUpdate() {
   downloading.value = true
+  checkError.value = ''
 
   try {
+    // 注册监听器
+    (window as any).ipcRenderer?.on('update-download-progress', onDownloadProgress);
+    (window as any).ipcRenderer?.on('update-downloaded', onUpdateDownloaded);
+    (window as any).ipcRenderer?.on('update-error', onUpdateError);
+
     const result = await (window as any).ipcRenderer?.invoke('download-and-install-update')
 
-    if (result?.success) {
-      // 下载成功，安装程序会自动启动
-      setTimeout(() => {
-        closeDialog()
-      }, 2000)
-    } else {
+    if (!result?.success) {
       checkError.value = result?.error || '下载更新失败'
       downloading.value = false
+      cleanupListeners()
     }
   } catch (error: any) {
     checkError.value = error.message || '下载更新出错'
     downloading.value = false
+    cleanupListeners()
   }
+}
+
+function cleanupListeners() {
+  (window as any).ipcRenderer?.off('update-download-progress', onDownloadProgress);
+  (window as any).ipcRenderer?.off('update-downloaded', onUpdateDownloaded);
+  (window as any).ipcRenderer?.off('update-error', onUpdateError);
 }
 
 function showUpdateDialog() {
@@ -157,9 +206,15 @@ onMounted(async () => {
     if (versionInfo) {
       currentVersion.value = `v${versionInfo.version}`
     }
+    // 自动检查更新
+    await checkUpdates()
   } catch (error) {
-    console.error('Failed to get app version:', error)
+    console.error('Failed to get app version or check updates:', error)
   }
+})
+
+onUnmounted(() => {
+  cleanupListeners()
 })
 </script>
 
