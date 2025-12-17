@@ -58,13 +58,8 @@ export function setupUpdateHandlers() {
   })
 
   // 下载并安装更新
-  ipcMain.handle('download-and-install-update', async (event, downloadUrl) => {
+  ipcMain.handle('download-and-install-update', async () => {
     try {
-      if (process.platform === 'darwin') {
-        await shell.openExternal(downloadUrl || 'https://github.com/cloudflypeng/eno-m-desktop/releases/latest')
-        return { success: true, message: '已打开下载页面' }
-      }
-      
       // 开始下载
       await autoUpdater.downloadUpdate()
       return { success: true, message: '开始下载更新' }
