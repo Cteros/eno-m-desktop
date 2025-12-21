@@ -11,7 +11,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
       fail-fast: false
 
     permissions:
@@ -57,6 +57,11 @@ jobs:
         run: |
           pnpm exec electron-builder --config electron-builder.json5 --mac --publish never
 
+      - name: Build Electron app (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          pnpm exec electron-builder --config electron-builder.json5 --linux --publish never
+
       - name: Build Electron app (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -66,9 +71,10 @@ jobs:
         if: runner.os == 'macOS'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
-          cd release/*/
-          for file in *.dmg *.blockmap latest-mac.yml; do
+          cd release/*/ || exit 0
+          for file in *.dmg *.zip *.blockmap latest-mac.yml latest.yml; do
             if [ -f "$file" ]; then
               echo "Uploading $file..."
               gh release upload ${{ github.ref_name }} "$file" --clobber || true
@@ -81,10 +87,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          Get-ChildItem -Path "release\*" -Recurse -Include @("*.exe", "*.blockmap") | ForEach-Object {
+          Get-ChildItem -Path "release\*" -Recurse -Include @("*.exe", "*.msi", "*.blockmap", "latest*.yml") | ForEach-Object {
             Write-Host "Uploading $($_.Name)..."
             gh release upload ${{ github.ref_name }} "$($_.FullName)" --clobber 2>$null
           }
+
+      - name: Upload Linux assets to Release
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          cd release/*/ || exit 0
+          for file in *.AppImage *.deb *.rpm *.blockmap latest-linux.yml latest.yml; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file..."
+              gh release upload ${{ github.ref_name }} "$file" --clobber || true
+            fi
+          done
 
       - name: Debug - List release files
         if: always()
@@ -92,5 +112,15 @@ jobs:
         run: |
           echo "=== Release directory contents ==="
           ls -lah release/ || echo "No release directory"
-          find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.blockmap" -o -name "latest-mac.yml" \) 2>/dev/null | head -20
 
+          echo "=== Release artifacts (common) ==="
+          find release -type f \
+            \( -name "*.dmg" \
+            -o -name "*.zip" \
+            -o -name "*.exe" \
+            -o -name "*.msi" \
+            -o -name "*.AppImage" \
+            -o -name "*.blockmap" \
+            -o -name "latest-*.yml" \
+            -o -name "latest.yml" \) \
+            2>/dev/null | head -50

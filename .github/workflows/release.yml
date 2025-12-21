@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,16 +23,16 @@ jobs:
         run: |
           TAG_NAME=${{ github.ref_name }}
           RELEASE_NAME="Release ${TAG_NAME}"
-          
-          # 获取前一个标签
+
+          # 获取前一个标签（按版本号排序）
           PREV_TAG=$(git tag -l | grep -v "^${TAG_NAME}$" | sort -V | tail -1)
-          
+
           if [ -z "$PREV_TAG" ]; then
             CHANGELOG="初始版本"
           else
             CHANGELOG=$(git log ${PREV_TAG}..${TAG_NAME} --pretty=format:"- %s" --reverse)
           fi
-          
+
           # 创建 GitHub Release
           gh release create "${TAG_NAME}" \
             --title "${RELEASE_NAME}" \
@@ -44,7 +44,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
       fail-fast: false
 
     permissions:
@@ -95,14 +95,20 @@ jobs:
         run: |
           pnpm exec electron-builder --config electron-builder.json5 --win --publish never
 
+      - name: Build Electron app (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          pnpm exec electron-builder --config electron-builder.json5 --linux --publish never
+
       - name: Upload macOS assets
         if: runner.os == 'macOS'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
           cd release/*/
           ls -la
-          for file in *.dmg *.zip *.blockmap latest-mac.yml; do
+          for file in *.dmg *.zip *.blockmap latest-mac.yml latest.yml; do
             if [ -f "$file" ]; then
               echo "Uploading $file..."
               gh release upload ${{ github.ref_name }} "$file" --clobber
@@ -115,10 +121,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          Get-ChildItem -Path "release\*" -Recurse -Include @("*.exe", "*.blockmap") | ForEach-Object {
+          Get-ChildItem -Path "release\*" -Recurse -Include @("*.exe", "*.blockmap", "latest.yml", "latest-windows.yml") | ForEach-Object {
             Write-Host "Uploading $($_.Name)..."
             gh release upload ${{ github.ref_name }} "$($_.FullName)" --clobber 2>$null
           }
+
+      - name: Upload Linux assets
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          cd release/*/
+          ls -la
+          for file in *.AppImage *.blockmap latest-linux.yml latest.yml; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file..."
+              gh release upload ${{ github.ref_name }} "$file" --clobber
+            fi
+          done
 
       - name: Debug - List release files
         if: always()
@@ -126,5 +147,17 @@ jobs:
         run: |
           echo "=== Release directory contents ==="
           ls -lah release/ || echo "No release directory"
-          find release -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.blockmap" -o -name "latest-mac.yml" \) 2>/dev/null | head -20
 
+          echo "=== Release directory tree (depth 3) ==="
+          find release -maxdepth 3 -print 2>/dev/null | sed -n '1,200p'
+
+          echo "=== Release artifacts (common) ==="
+          find release -type f \
+            \( -name "*.dmg" \
+            -o -name "*.zip" \
+            -o -name "*.exe" \
+            -o -name "*.AppImage" \
+            -o -name "*.blockmap" \
+            -o -name "latest-*.yml" \
+            -o -name "latest.yml" \) \
+            2>/dev/null | sed -n '1,200p'
