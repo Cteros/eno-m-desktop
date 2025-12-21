@@ -1,6 +1,6 @@
 {
   "name": "eno-m-desktop",
-  "version": "2.1.9",
+  "version": "2.2.0",
   "main": "dist-electron/main/index.js",
   "description": "eno-m 的桌面版本",
   "author": "meanc <cloudflypeng@gmail.com>",
