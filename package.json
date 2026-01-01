@@ -34,7 +34,7 @@
     "@unocss/preset-icons": "^66.5.10",
     "@unocss/preset-uno": "^66.5.10",
     "@unocss/reset": "^66.5.10",
-    "@vitejs/plugin-vue": "^5.2.4",
+    "@vitejs/plugin-vue": "^6.0.3",
     "electron": "^35.7.5",
     "electron-builder": "^25.1.8",
     "typescript": "^5.9.3",
