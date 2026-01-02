@@ -1,95 +1,140 @@
 <script setup>
-import { defaultSingers, usePlaylistStore } from '~/playlist/store'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { playCoreStore } from '~/playcore/store'
 import SingerItem from '~/components/SingerItem.vue'
-import Dialog from '~/components/dialog/index.vue'
-import { ref, onMounted } from 'vue'
+import Message from '~/components/message'
 
-// https://space.bilibili.com/17819768?spm_id_from=333.1007.tianma.1-1-1.click
-function getMidFromUrl(url) {
-  // 如果url 是纯数字, 则直接返回
-  if (/^\d+$/.test(url)) {
-    return url
-  }
-  const match = url.match(/space\.bilibili\.com\/(\d+)/)
-  if (match) {
-    return match[1]
-  }
-  return ''
-}
+const route = useRoute()
+const router = useRouter()
+const store = playCoreStore()
 
-const PLstore = usePlaylistStore()
-onMounted(() => {
-  PLstore.fetchSingerInfoList()
+const selectedTagId = ref(null)
+const isLoading = ref(false)
+
+// 从路由查询参数获取 tagid
+const tagidFromRoute = computed(() => {
+  return route.query.tagid ? Number(route.query.tagid) : null
 })
 
-// 添加歌手相关
-const dialogVis = ref(false)
-const singerMid = ref('')
-function addSinger() {
-  // 判断是否已经存在, 判断singerMid是否合法
-  const mid = getMidFromUrl(singerMid.value)
-  if (!mid)
-    return
-  if (defaultSingers.includes(mid) || PLstore.singers.includes(mid))
-    return
+// 当路由改变时，同步 selectedTagId
+watch(() => tagidFromRoute.value, (newTagId) => {
+  selectedTagId.value = newTagId
+}, { immediate: true })
 
-  PLstore.addSinger(mid)
-  dialogVis.value = false
+// 当前分组的up主列表（mid列表）
+const currentFollowers = computed(() => {
+  if (selectedTagId.value === null) {
+    // 显示所有关注的人
+    return store.allFollowersCache.map(f => f.mid)
+  } else {
+    // 显示特定分组的人
+    return store.getFollowersByTag(selectedTagId.value).map(f => f.mid)
+  }
+})
+
+// 获取当前分组的信息
+const currentTag = computed(() => {
+  if (selectedTagId.value === null) {
+    return { name: '所有分组', count: store.allFollowersCache.length }
+  }
+  const tag = store.singerTagsCache[selectedTagId.value]
+  return tag ? { ...tag, count: store.getTagFollowerCount(selectedTagId.value) } : null
+})
+
+onMounted(async () => {
+  // 初始化加载数据
+  if (store.allFollowersCache.length === 0) {
+    await loadData()
+  }
+
+  // 如果没有指定 tagid，默认导航到第一个有值的 tag
+  if (tagidFromRoute.value === null) {
+    const firstTag = Object.values(store.singerTagsCache)
+      .filter(tag => tag.tagid !== 0 && store.getTagFollowerCount(tag.tagid) > 0)
+      .sort((a, b) => a.tagid - b.tagid)[0]
+
+    if (firstTag) {
+      router.replace({ name: 'singerList', query: { tagid: firstTag.tagid } })
+    }
+  }
+})
+
+watch(() => selectedTagId.value, async (newTagId) => {
+  store.setCurrentTag(newTagId)
+
+  // 如果选择了特定分组且该分组还没有加载过，则加载
+  if (newTagId !== null && store.getFollowersByTag(newTagId).length === 0) {
+    isLoading.value = true
+    try {
+      await store.fetchFollowersByTag(newTagId)
+    } finally {
+      isLoading.value = false
+    }
+  }
+})
+
+const loadData = async () => {
+  isLoading.value = true
+  try {
+    await store.fetchFollowingTags()
+    await store.fetchAllFollowers()
+    Message.show({ type: 'success', message: '分组数据已加载' })
+  } catch (error) {
+    console.error('Failed to load data:', error)
+    Message.show({ type: 'error', message: '加载失败' })
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
 <template>
-  <section class="page-inner relative">
-    <!-- 内容区域 -->
-    <div class="relative z-10">
-      <!-- 额标 -->
-      <div class="mb-8 mt-4">
-        <div class="flex items-end justify-between gap-6">
-          <div>
-            <h2 class="text-display mb-2">
-              关注的音乐人
-            </h2>
-            <p class="text-body-small">
-              {{ PLstore.singers.length }} 位音乐人
-            </p>
-          </div>
-          <button class="btn-primary" @click.stop="dialogVis = true">
-            <div class="flex items-center gap-2">
-              <div class="i-mingcute:add-fill" />
-              <span>添加歌手</span>
+  <div class="page-container flex flex-col h-full">
+    <!-- 页面内容 -->
+    <section class="flex-1 overflow-auto page-inner relative">
+      <!-- 内容区域 -->
+      <div class="relative z-10">
+        <!-- 标题区域 -->
+        <div class="mb-8 mt-4">
+          <div class="flex items-end justify-between gap-6">
+            <div>
+              <h2 class="text-display mb-2">
+                {{ currentTag?.name || '加载中...' }}
+              </h2>
+              <p class="text-body-small">
+                {{ currentFollowers.length }} 位音乐人
+              </p>
             </div>
-          </button>
+          </div>
+        </div>
+
+        <!-- 加载状态 -->
+        <div v-if="isLoading" class="flex flex-col items-center justify-center py-16">
+          <div class="animate-spin i-mingcute:loading-3-line text-4xl mb-4" />
+          <p class="text-body-small">加载中...</p>
+        </div>
+
+        <!-- 歌手网格 -->
+        <div v-else-if="currentFollowers.length > 0"
+          class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 auto-rows-max">
+          <SingerItem v-for="mid in currentFollowers" :key="mid" :singer-mid="mid" type="card-modern" class="h-56" />
+        </div>
+
+        <!-- 空状态 -->
+        <div v-else class="flex flex-col items-center justify-center py-16 text-center">
+          <div class="i-mingcute:user-star-line text-6xl mb-4 opacity-20" />
+          <h3 class="text-heading-1 mb-2">暂无音乐人</h3>
+          <p class="text-body-small">该分组下暂无关注的音乐人</p>
         </div>
       </div>
-
-      <!-- 歌手网格 -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 auto-rows-max">
-        <SingerItem v-for="mid in PLstore.singers" :key="mid" :singer-mid="mid" type="card-modern" class="h-56"
-          :can-del="true" />
-      </div>
-
-      <!-- 空状态 -->
-      <div v-if="!PLstore.singers.length" class="flex flex-col items-center justify-center py-16 text-center">
-        <div class="i-mingcute:user-star-line text-6xl mb-4 opacity-20" />
-        <h3 class="text-heading-1 mb-2">暂无关注的音乐人</h3>
-        <p class="text-body-small">点击上方按钮添加你喜欢的音乐人</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 添加歌手对话框 -->
-  <Dialog :open="dialogVis" title="添加自定义歌手" @visible-change="dialogVis = $event">
-    <div class="flex flex-col gap-4 w-full">
-      <div class="flex flex-col gap-2">
-        <label class="text-body font-medium">歌手空间 URL 或 ID</label>
-        <input v-model="singerMid" placeholder="https://space.bilibili.com/123456 或 123456"
-          class="h-10 px-4 border border-[#404040] bg-[#282828] rounded-lg text-white placeholder-gray-500 focus:border-[#1db954] focus:outline-none transition-colors"
-          @keyup.enter="addSinger">
-      </div>
-    </div>
-    <template #footer>
-      <button class="btn-ghost" @click="dialogVis = false">取消</button>
-      <button class="btn-primary" @click="addSinger">添加</button>
-    </template>
-  </Dialog>
+    </section>
+  </div>
 </template>
+
+<style scoped>
+.page-container {
+  width: 100%;
+  height: 100%;
+}
+</style>

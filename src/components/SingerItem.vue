@@ -1,6 +1,6 @@
 <script setup>
 import cn from 'classnames'
-import { usePlaylistStore } from '../playlist/store'
+import { useCollectionsStore } from '../playcore/stores/collections'
 import { useBlblStore } from '../blbl/store'
 
 import { useRouter } from 'vue-router'
@@ -24,31 +24,33 @@ const props = defineProps({
 })
 const router = useRouter()
 const store = useBlblStore()
-const PLstore = usePlaylistStore()
-const info = computed(() => PLstore.singerCardCache[props.singerMid])
+const collectionsStore = useCollectionsStore()
+const info = ref(null)
 const avatar = computed(() => info.value?.face || '')
-const name = computed(() => info.value?.name || '')
+const name = computed(() => info.value?.uname || '')
 const desc = computed(() => {
   const { name } = info.value?.nameplate || {}
   return `${name || 'Artist'}`
 })
 
 onMounted(() => {
-  if (!info.value && props.singerMid) {
-    console.log('111')
-    PLstore.fetchSingerInfo(props.singerMid)
+  if (props.singerMid && !info.value) {
+    collectionsStore.fetchSingerInfo(props.singerMid).then(result => {
+      info.value = result
+    })
   }
 })
 
 watch(() => props.singerMid, (newMid) => {
-  if (newMid && !PLstore.singerCardCache[newMid]) {
-    PLstore.fetchSingerInfo(newMid)
+  if (newMid && newMid !== props.singerMid) {
+    collectionsStore.fetchSingerInfo(newMid).then(result => {
+      info.value = result
+    })
   }
 })
 
 function handleSingerDetail(singerMid) {
   if (!info.value) return
-  PLstore.currentSinger = singerMid
   router.push(`/singerDetail/${singerMid}`)
 }
 </script>
@@ -175,7 +177,7 @@ function handleSingerDetail(singerMid) {
       <div class="flex items-center gap-3 transition-opacity duration-200 opacity-0 group-hover:opacity-100">
         <div v-if="canDel"
           class="i-mingcute:delete-line w-[18px] h-[18px] text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
-          @click.stop="PLstore.removeSinger(singerMid)" />
+          @click.stop="collectionsStore.removeSinger(singerMid)" />
       </div>
     </template>
     <template v-else>

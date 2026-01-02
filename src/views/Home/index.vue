@@ -2,14 +2,11 @@
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { usePlaylistStore } from '../../playlist/store'
 import { useBlblStore } from '../../blbl/store'
-import SingerItem from '~/components/SingerItem.vue'
-import ScrollButton from './scroll-button.vue'
 import { useRouter } from 'vue-router'
 
 const store = useBlblStore()
 const PLstore = usePlaylistStore()
 const router = useRouter()
-const singerScrollRef = ref(null)
 
 // 当前时间（用于计算问候语），每分钟更新一次以保持问候语准确
 const now = ref(Date.now())
@@ -36,12 +33,6 @@ const greeting = computed(() => {
 
 function goToRank() {
   router.push('/rank')
-}
-
-function handleScroll(offset) {
-  if (singerScrollRef.value) {
-    singerScrollRef.value.scrollBy({ left: offset, behavior: 'smooth' })
-  }
 }
 
 </script>
@@ -86,28 +77,6 @@ function handleScroll(offset) {
         <!-- 边框光晕效果 -->
         <div
           class="absolute inset-0 rounded-xl border border-gradient-to-r from-pink-500/30 to-orange-400/30 opacity-0 group-hover:opacity-40 transition-opacity duration-300 z-30" />
-      </div>
-    </div>
-
-    <!-- 关注的歌手 -->
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-6">
-        <h3 class="text-2xl font-bold text-white">
-          关注的歌手
-        </h3>
-        <div class="flex items-center gap-4">
-          <ScrollButton :step="300" :handle-scroll="handleScroll" />
-          <span
-            class="text-xs font-bold text-gray-400 hover:text-white cursor-pointer uppercase tracking-wider transition-colors"
-            @click="$router.push('/singerList')">
-            Show all →
-          </span>
-        </div>
-      </div>
-
-      <div ref="singerScrollRef" class="flex overflow-x-auto gap-4 pb-4 scrollbar-hide">
-        <SingerItem v-for="serid in PLstore.singers" :key="serid" :singer-mid="serid" type="card-modern"
-          class="h-56 w-40 flex-shrink-0 max-w-40" />
       </div>
     </div>
 

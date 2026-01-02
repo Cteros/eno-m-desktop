@@ -10,7 +10,9 @@ import { VIDEO_MODE, useBlblStore } from '../../blbl/store'
 import { usePlaylistStore } from '../../playlist/store.ts'
 import { useDownloadStore } from '../../store/downloadStore'
 import { formatFileName } from '~/utils/filename'
-import LoopSwitch from './LoopSwitch.vue'
+import { LoopSwitch } from '../common'
+import { Slider } from '../common'
+import { PlayControlBar } from '../common'
 
 // hooks & utils
 import useControl from './keys'
@@ -51,7 +53,7 @@ const progress = reactive({
   current: 0,
   total: 0,
 })
-const voice = useLocalStorage('voice', 1)
+const voice = useLocalStorage('voice', 100)
 const isCloseVoice = ref(false)
 const progressTimer = ref(null)
 const isDragging = ref(false)
@@ -294,12 +296,12 @@ const progressTrans = computed(() => {
     transform: `translateX(${(1 - progress.percent) * -100}%)`,
   }
 })
-function handleChangeVoice(e) {
+function handleChangeVoice(val) {
   // 确保 store.howl 存在，防止报错
   if (store.howl) {
-    store.howl.volume(e.target.value)
+    store.howl.volume(val / 100)
   }
-  voice.value = e.target.value
+  voice.value = val
 }
 // 设置打开声音和静音
 function setVoice() {
@@ -432,34 +434,21 @@ async function downloadSong() {
 
       <!-- 中间控制区 -->
       <div class="flex flex-col items-center w-[40%] max-w-[722px] gap-1">
-        <div class="flex items-center gap-6 text-xl mb-1">
-          <LoopSwitch />
-          <div class="i-mingcute:skip-previous-fill hover:text-white cursor-pointer" @click.stop="change('prev')" />
-
-          <div
-            class="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform cursor-pointer"
-            @click.stop="playControl">
-            <div v-if="isPlaying" class="i-mingcute:pause-fill text-xl" />
-            <div v-else class="i-mingcute:play-fill text-xl pl-0.5" />
-          </div>
-
-          <div class="i-mingcute:skip-forward-fill hover:text-white cursor-pointer" @click.stop="change('next')" />
-          <div class="i-mingcute:repeat-one-line hover:text-white cursor-pointer text-lg opacity-0" /> <!-- 占位 -->
-        </div>
+        <PlayControlBar :isPlaying="isPlaying" @play="playControl" @prev="() => change('prev')"
+          @next="() => change('next')" @forward="() => changeSeek(15)" @backward="() => changeSeek(-15)">
+          <template #left>
+            <LoopSwitch v-model="store.loopMode" />
+          </template>
+          <template #right>
+            <div class="i-mingcute:repeat-one-line hover:text-white cursor-pointer text-lg opacity-0" />
+          </template>
+        </PlayControlBar>
 
         <div class="flex items-center w-full gap-2 text-xs font-mono">
           <span class="min-w-[40px] text-right">{{ timeDisplay.current }}</span>
-          <div class="group relative flex-1 h-1 bg-[#4d4d4d] rounded-full cursor-pointer">
-            <div class="absolute top-0 left-0 h-full bg-white rounded-full group-hover:bg-green-500"
-              :style="{ width: `${progress.percent * 100}%` }" />
-            <!-- 滑块 -->
-            <div
-              class="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 shadow pointer-events-none"
-              :style="{ left: `${progress.percent * 100}%`, marginLeft: '-6px' }" />
-            <input v-model="progress.percent" type="range"
-              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" min="0" max="1" step="0.001"
-              @input="changeProgress" @change="changeProgress">
-          </div>
+          <Slider class="flex-1 h-1" :value="Math.round(progress.percent * 100)"
+            @update:value="val => { progress.percent = val / 100; isDragging = true }"
+            @change="val => { changeProgress({ type: 'change', target: { value: val / 100 } }) }" />
           <span class="min-w-[40px]">{{ timeDisplay.total }}</span>
         </div>
       </div>
@@ -485,14 +474,8 @@ async function downloadSong() {
         <div class="flex items-center gap-2 w-32 group">
           <div v-if="isCloseVoice" class="i-mingcute:volume-mute-line text-lg" @click="setVoice" />
           <div v-else class="i-mingcute:volume-line text-lg" @click="setVoice" />
-
-          <div class="flex-1 h-1 bg-[#4d4d4d] rounded-full cursor-pointer relative" @click="handleChangeVoice">
-            <div class="absolute top-0 left-0 h-full bg-white rounded-full group-hover:bg-green-500"
-              :style="{ width: `${voice * 100}%` }" />
-            <input v-if="!isCloseVoice" v-model="voice" type="range"
-              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" min="0" max="1" step="0.01"
-              @change="handleChangeVoice">
-          </div>
+          <Slider v-if="!isCloseVoice" class="flex-1 h-1" :value="voice" @update:value="val => (voice = val)"
+            @change="handleChangeVoice" />
         </div>
 
         <div class="i-mingcute:fullscreen-line hover:text-white cursor-pointer text-lg" @click="fullScreenTheBody" />

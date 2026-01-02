@@ -3,8 +3,11 @@ import { computed, ref } from 'vue'
 import cn from 'classnames'
 import TabItem from './TabItem.vue'
 import UpdateCheck from './UpdateCheck.vue'
+import { playCoreStore } from '~/playcore/store'
+import Message from './message'
 
 const updateCheckRef = ref(null)
+const pcStore = playCoreStore()
 
 const navTabs = [
   { icon: 'i-mingcute:home-5-fill', title: '首页', mode: 'home' },
@@ -22,10 +25,20 @@ const settingTabs = [
 
 const panelClass = "bg-[#121212] rounded-lg overflow-hidden flex flex-col"
 
+// 获取 pinned 分组
+const pinnedTags = computed(() => pcStore.getPinnedTags)
+
 function handleUpdateClick(e) {
   e.preventDefault()
   e.stopPropagation()
   updateCheckRef.value?.showUpdateDialog()
+}
+
+function handleUnpinTag(tagid, e) {
+  e.preventDefault()
+  e.stopPropagation()
+  pcStore.unpinTag(tagid)
+  Message.show({ type: 'success', message: '已取消固定' })
 }
 </script>
 
@@ -55,6 +68,24 @@ function handleUpdateClick(e) {
         <div class="flex flex-col gap-1">
           <TabItem v-for="tab in libraryTabs" :key="tab.mode" :tab="tab" :open="true"
             class="hover:text-white hover:bg-[#1f1f1f] rounded transition-colors" />
+        </div>
+
+        <!-- Pinned 分组 -->
+        <div v-if="pinnedTags.length > 0" class="mt-4 pt-4 border-t border-[#282828]">
+          <div class="px-2 py-2 text-xs font-bold text-gray-500 mb-2">
+            固定的分组
+          </div>
+          <div class="flex flex-col gap-1">
+            <RouterLink v-for="tag in pinnedTags" :key="tag.tagid"
+              :to="{ name: 'singerList', query: { tagid: tag.tagid } }"
+              class="px-3 py-2 rounded hover:bg-[#1f1f1f] transition-colors flex items-center justify-between group cursor-pointer text-sm">
+              <span class="flex-1">{{ tag.name }}</span>
+              <button class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-red-400"
+                @click="handleUnpinTag(tag.tagid, $event)" title="取消固定">
+                <div class="i-mingcute:close-line text-sm" />
+              </button>
+            </RouterLink>
+          </div>
         </div>
       </div>
     </div>

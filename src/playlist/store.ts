@@ -26,16 +26,6 @@ interface CollectionItem {
     [key: string]: any;
 }
 
-export const defaultSingers = [
-    "337312411", // 翠花
-    "1889545341", // 邓紫棋
-    "210752", // 真栗
-    "37754047", // 咻咻满
-    "20473341", // 一直在吃的周梓琦
-    "1839002753", // 鹿火
-    "98573631", // 鹿小草
-];
-
 export const usePlaylistStore = defineStore("playlist", {
     state: () => ({
         listenLater: useLocalStorage("listenLater", [] as song[]),
@@ -43,15 +33,6 @@ export const usePlaylistStore = defineStore("playlist", {
         songToAdd: null as song | null,
         // 添加窗口是否打开
         addSongDialog: false,
-        // 歌手相关
-        // 用户自定义歌手mid
-        singers: useLocalStorage("singers", [...defaultSingers] as string[]),
-        singerCardCache: useLocalStorage(
-            "singerCardCache",
-            {} as Record<string, any>,
-        ),
-        // 当前选中的歌手
-        currentSinger: null as string | null,
         // 打开合集
         openCollection: false,
         collectionInfo: {} as object,
@@ -242,38 +223,11 @@ export const usePlaylistStore = defineStore("playlist", {
                 console.error('Failed to create fav folder:', error);
             }
         },
-        // 获取歌手信息
-        fetchSingerInfoList() {
-            if (this.singers.length === 0) {
-                this.singers = [...defaultSingers];
-            }
-            // 获取用户添加的歌手信息
-            this.singers.forEach((mid) => {
-                this.fetchSingerInfo(mid);
-            });
-        },
-        // 获取单个歌手信息
-        fetchSingerInfo(mid: string, withCache = true) {
-            if (this.singerCardCache[mid] && withCache) return;
-            this.singerCardCache[mid] = null;
-            invokeBiliApi(BLBL.GET_USER_INFO, { mid }).then((res: any) => {
-                this.singerCardCache[mid] = res.data.card;
-            });
-        },
-        addSinger(mid: string) {
-            this.singers.push(mid);
-            this.fetchSingerInfo(mid, false);
-        },
         initUserPermission() {
             invokeBiliApi(BLBL.GET_USER_INFO, { mid: "184327681" }).then((res: any) => {
                 this.userPermission =
                     res.data.mid === "184327681" || res.data.following;
             });
-        },
-        removeSinger(mid: string) {
-            const index = this.singers.findIndex((s) => s === mid);
-            if (index === -1) return;
-            this.singers.splice(index, 1);
         },
     },
 });

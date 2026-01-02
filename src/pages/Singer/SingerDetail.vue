@@ -1,13 +1,13 @@
 <script setup>
 import { useInfiniteScroll, useScroll } from '@vueuse/core'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 
 import SongItem from '~/components/SongItem.vue'
 import { invokeBiliApi, BLBL } from '~/api/bili'
 
 import { useBlblStore } from '~/blbl/store.ts'
-import { usePlaylistStore } from '~/playlist/store'
+import { playCoreStore, useCollectionsStore } from '~/playcore/store'
 import Loading from '~/components/loading/index.vue'
 import Message from '~/components/message'
 import { useDownloadStore } from '~/store/downloadStore'
@@ -18,14 +18,57 @@ import { useUIStore } from '@/store/uiStore'
 import DynamicHeader from '~/components/DynamicHeader.vue'
 
 const route = useRoute()
-const PLstore = usePlaylistStore()
+const pcStore = playCoreStore()
 const store = useBlblStore()
 const uiStore = useUIStore()
+const collectionsStore = useCollectionsStore()
 
 const currentMid = computed(() => route.params.mid || '')
 
-const info = computed(() => {
-  return PLstore.singerCardCache[currentMid.value]
+// 歌手信息，响应式加载
+const info = ref(null)
+const isLoadingSingerInfo = ref(false)
+
+// 加载歌手信息
+const loadSingerInfo = async (mid) => {
+  if (!mid) {
+    info.value = null
+    return
+  }
+
+  // 首先检查关注列表中是否有此歌手
+  const follower = pcStore.allFollowersCache.find(f => f.mid === mid || f.mid.toString() === mid.toString())
+  if (follower) {
+    console.log(follower)
+    info.value = follower
+    return
+  }
+
+  // 否则从 API 获取歌手信息
+  isLoadingSingerInfo.value = true
+  try {
+    const singerInfo = await collectionsStore.fetchSingerInfo(mid)
+    console.log(singerInfo)
+    info.value = singerInfo
+  } catch (error) {
+    console.error(`Failed to load singer info for ${mid}:`, error)
+    info.value = null
+  } finally {
+    isLoadingSingerInfo.value = false
+  }
+}
+
+// 监听路由 mid 参数变化
+watch(() => currentMid.value, (newMid) => {
+  loadSingerInfo(newMid)
+}, { immediate: true })
+
+// 初始化时确保关注列表有数据
+onMounted(async () => {
+  // 如果关注列表为空，先加载一次
+  if (pcStore.allFollowersCache.length === 0) {
+    await pcStore.fetchAllFollowers().catch(e => console.error('Failed to fetch followers:', e))
+  }
 })
 
 const headerColor = ref('#535353') // 默认颜色
@@ -135,8 +178,6 @@ async function getSongs(params) {
 
 watch(() => currentMid.value, (mid) => {
   if (!mid) return
-  PLstore.fetchSingerInfo(mid, true)
-  songListByPage.value = {}
   page.value.pn = 1
   loading.value = false
   getSongs({ mid })
@@ -146,19 +187,33 @@ function handlePlayUser() {
   store.playList = renderList.value
   store.play = renderList.value[0]
 }
+
+// 检查该up主是否已关注
 const isFollowed = computed(() => {
-  return PLstore.singers.includes(currentMid.value)
+  return pcStore.allFollowersCache.some(f => f.mid === currentMid.value)
 })
 
 async function handleFollow() {
   if (!currentMid.value) return
   try {
     if (isFollowed.value) {
-      PLstore.removeSinger(currentMid.value)
+      // 调用B站API取消关注
+      await invokeBiliApi(BLBL.RELATION_MODIFY, {
+        fid: currentMid.value,
+        act: 2, // 2: 取消关注
+      })
       Message.show({ type: 'success', message: '已取消关注' })
+      // 刷新关注列表缓存
+      await pcStore.fetchAllFollowers()
     } else {
-      PLstore.addSinger(currentMid.value)
+      // 调用B站API关注
+      await invokeBiliApi(BLBL.RELATION_MODIFY, {
+        fid: currentMid.value,
+        act: 1, // 1: 关注
+      })
       Message.show({ type: 'success', message: '关注成功' })
+      // 刷新关注列表缓存
+      await pcStore.fetchAllFollowers()
     }
   } catch (e) {
     console.error(e)
@@ -453,9 +508,9 @@ function stopBulkDownload() {
   <!-- 页面主容器 -->
   <section ref="contentRef" class="h-[calc(100vh-170px)] overflow-auto bg-[#121212]">
     <!-- 动态头部区域 -->
-    <DynamicHeader :img-src="info?.face" :title="info?.name" :color="headerColor" :is-scrolled="isScrolled"
-      v-model:keyword="keyword" @play="handlePlayUser" @search="getSongs({ mid: currentMid, keyword })"
-      @open-external="openSingerPage">
+    <DynamicHeader :img-src="info?.face || ''" :title="info?.uname || '加载中...'" :color="headerColor"
+      :is-scrolled="isScrolled" v-model:keyword="keyword" @play="handlePlayUser"
+      @search="getSongs({ mid: currentMid, keyword })" @open-external="openSingerPage">
       <template #actions>
         <!-- 歌曲数量 -->
         <div class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors"

@@ -32,6 +32,11 @@ enum BLBL {
   GET_COLLECTION_INFO = 'getCollectionInfo', // 获取视频合集信息
   GET_SERIES_INFO = 'getSeriesInfo', // 获取指定系列信息
   GET_SEASONS_SERIES_LIST = 'getSeasonsSeriesList', // 获取系列和合集列表
+  GET_FOLLOWING_LIST = 'getFollowingList', // 获取关注列表
+  GET_FOLLOWING_TAGS = 'getFollowingTags', // 获取关注分组列表
+  GET_FOLLOWING_TAG_USERS = 'getFollowingTagUsers', // 获取分组下的用户列表
+  CREATE_FOLLOWING_TAG = 'createFollowingTag', // 创建关注分组
+  DELETE_FOLLOWING_TAG = 'deleteFollowingTag', // 删除关注分组
 }
 
 const API = {

@@ -174,7 +174,7 @@ const api = {
       method: 'get',
     },
     params: {
-      tid: 3,
+      // tid: 3,
     },
     afterHandle: AHS.J,
   },
@@ -376,6 +376,80 @@ const api = {
       mid: 0, // 用户 mid
       page_num: 1, // 页码
       page_size: 20, // 每页数量
+    },
+    afterHandle: AHS.J,
+  },
+  // 获取关注列表
+  [BLBL.GET_FOLLOWING_LIST]: {
+    url: `${baseUrl}/x/relation/followings`,
+    _fetch: {
+      method: 'get',
+    },
+    params: {
+      vmid: 0, // 用户 mid，0 表示当前用户
+      pn: 1, // 页码
+      ps: 50, // 每页数量
+      tagid: undefined, // 分组 ID，可选（按分组筛选）
+      order: 'desc', // 排序方式
+      order_type: 'attention', // 排序类型
+    },
+    afterHandle: AHS.J,
+  },
+  // 获取关注分组列表
+  [BLBL.GET_FOLLOWING_TAGS]: {
+    url: `${baseUrl}/x/relation/tags`,
+    _fetch: {
+      method: 'get',
+    },
+    params: {
+      only_master: false, // 是否只返回主人的分组
+      web_location: '333.1387', // web 定位标识
+    },
+    afterHandle: AHS.J,
+  },
+  // 获取分组下的用户列表
+  [BLBL.GET_FOLLOWING_TAG_USERS]: {
+    url: `${baseUrl}/x/relation/tag`,
+    _fetch: {
+      method: 'get',
+    },
+    params: {
+      tagid: 0, // 分组 ID
+      pn: 1, // 页码
+      ps: 24, // 每页数量
+      web_location: '333.1387', // web 定位标识
+    },
+    afterHandle: AHS.J,
+  },
+  // 创建关注分组
+  [BLBL.CREATE_FOLLOWING_TAG]: {
+    url: `${baseUrl}/x/relation/tag/create`,
+    _fetch: {
+      method: 'post',
+    },
+    params: {
+      tag: '', // 分组名称
+      'x-bili-device-req-json': JSON.stringify({
+        platform: 'web',
+        device: 'pc',
+        spmid: '333.1387',
+      }),
+    },
+    afterHandle: AHS.J,
+  },
+  // 删除关注分组
+  [BLBL.DELETE_FOLLOWING_TAG]: {
+    url: `${baseUrl}/x/relation/tag/del`,
+    _fetch: {
+      method: 'post',
+    },
+    params: {
+      tagid: 0, // 分组ID
+      'x-bili-device-req-json': JSON.stringify({
+        platform: 'web',
+        device: 'pc',
+        spmid: '333.1387',
+      }),
     },
     afterHandle: AHS.J,
   },
