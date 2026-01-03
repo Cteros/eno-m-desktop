@@ -353,6 +353,99 @@ export const useSingerStore = defineStore("playcore:singer", {
     },
 
     /**
+     * 添加用户到分组
+     */
+    async addUserToTags(mid: string | number, tagids: (string | number)[]): Promise<boolean> {
+      if (!mid) {
+        throw new Error('用户ID不能为空');
+      }
+
+      if (!Array.isArray(tagids) || tagids.length === 0) {
+        throw new Error('分组列表不能为空');
+      }
+
+      try {
+        const res = await invokeBiliApi(BLBL.ADD_USER_TO_TAGS, {
+          fids: String(mid),
+          tagids: tagids.map(id => String(id)).join(','),
+        });
+
+        if (!res) {
+          throw new Error('API 调用失败，未收到响应');
+        }
+
+        if (res.code === 0) {
+          return true;
+        } else {
+          throw new Error(res.message || '添加用户到分组失败');
+        }
+      } catch (error) {
+        console.error('Failed to add user to tags:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * 关注用户
+     */
+    async followUser(mid: string | number): Promise<boolean> {
+      if (!mid) {
+        throw new Error('用户ID不能为空');
+      }
+
+      try {
+        const res = await invokeBiliApi(BLBL.RELATION_MODIFY, {
+          fid: Number(mid),
+          act: 1, // 1: 关注
+          re_src: 11,
+        });
+
+        if (!res) {
+          throw new Error('API 调用失败，未收到响应');
+        }
+
+        if (res.code === 0) {
+          return true;
+        } else {
+          throw new Error(res.message || '关注失败');
+        }
+      } catch (error) {
+        console.error('Failed to follow user:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * 取消关注用户
+     */
+    async unfollowUser(mid: string | number): Promise<boolean> {
+      if (!mid) {
+        throw new Error('用户ID不能为空');
+      }
+
+      try {
+        const res = await invokeBiliApi(BLBL.RELATION_MODIFY, {
+          fid: Number(mid),
+          act: 2, // 2: 取消关注
+          re_src: 11,
+        });
+
+        if (!res) {
+          throw new Error('API 调用失败，未收到响应');
+        }
+
+        if (res.code === 0) {
+          return true;
+        } else {
+          throw new Error(res.message || '取消关注失败');
+        }
+      } catch (error) {
+        console.error('Failed to unfollow user:', error);
+        throw error;
+      }
+    },
+
+    /**
      * 清除缓存
      */
     clearCache() {

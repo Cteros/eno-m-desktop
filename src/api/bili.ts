@@ -36,6 +36,7 @@ enum BLBL {
   GET_FOLLOWING_TAG_USERS = 'getFollowingTagUsers', // 获取分组下的用户列表
   CREATE_FOLLOWING_TAG = 'createFollowingTag', // 创建关注分组
   DELETE_FOLLOWING_TAG = 'deleteFollowingTag', // 删除关注分组
+  ADD_USER_TO_TAGS = 'addUserToTags', // 添加用户到分组
 }
 
 interface BiliApiParams {

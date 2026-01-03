@@ -429,6 +429,7 @@ const api = {
     },
     params: {
       tag: '', // 分组名称
+      csrf: '', // 需要 csrf token，cookie 中获取
       'x-bili-device-req-json': JSON.stringify({
         platform: 'web',
         device: 'pc',
@@ -445,11 +446,25 @@ const api = {
     },
     params: {
       tagid: 0, // 分组ID
+      csrf: '', // 需要 csrf token，cookie 中获取
       'x-bili-device-req-json': JSON.stringify({
         platform: 'web',
         device: 'pc',
         spmid: '333.1387',
       }),
+    },
+    afterHandle: AHS.J,
+  },
+  // 添加用户到分组
+  [BLBL.ADD_USER_TO_TAGS]: {
+    url: `${baseUrl}/x/relation/tags/addUsers`,
+    _fetch: {
+      method: 'post',
+    },
+    params: {
+      fids: '', // 用户 mid，多个用逗号分隔
+      tagids: '', // 分组 ID 列表，多个用逗号分隔
+      csrf: '', // 需要 csrf token，cookie 中获取
     },
     afterHandle: AHS.J,
   },

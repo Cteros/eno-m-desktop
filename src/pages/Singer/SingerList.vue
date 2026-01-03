@@ -87,6 +87,35 @@ const loadData = async () => {
     isLoading.value = false
   }
 }
+
+// 刷新当前分组的列表
+const refreshCurrentTag = async () => {
+  if (selectedTagId.value === null) {
+    // 刷新所有分组
+    isLoading.value = true
+    try {
+      await store.fetchAllFollowers()
+      Message.show({ type: 'success', message: '已刷新' })
+    } catch (error) {
+      console.error('Failed to refresh:', error)
+      Message.show({ type: 'error', message: '刷新失败' })
+    } finally {
+      isLoading.value = false
+    }
+  } else {
+    // 刷新特定分组
+    isLoading.value = true
+    try {
+      await store.fetchFollowersByTag(selectedTagId.value)
+      Message.show({ type: 'success', message: '已刷新' })
+    } catch (error) {
+      console.error('Failed to refresh:', error)
+      Message.show({ type: 'error', message: '刷新失败' })
+    } finally {
+      isLoading.value = false
+    }
+  }
+}
 </script>
 
 <template>
@@ -106,6 +135,12 @@ const loadData = async () => {
                 {{ currentFollowers.length }} 位音乐人
               </p>
             </div>
+            <!-- 刷新按钮 -->
+            <button @click="refreshCurrentTag" :disabled="isLoading"
+              class="flex items-center gap-2 px-4 py-2 rounded bg-[#1db954] hover:bg-[#1ed760] text-black font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              <div :class="isLoading ? 'animate-spin i-mingcute:loading-3-line' : 'i-mingcute:refresh-line'" />
+              <span>{{ isLoading ? '刷新中...' : '刷新' }}</span>
+            </button>
           </div>
         </div>
 

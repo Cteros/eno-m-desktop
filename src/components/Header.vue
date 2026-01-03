@@ -76,6 +76,18 @@ async function handleDeleteTag(tagid: number, e: Event) {
 
     await pcStore.deleteTag(tagid)
     Message.show({ type: 'success', message: '分组已删除' })
+
+    // 如果删除的是当前选中的分组，切换到其他分组
+    if (selectedTagId.value === tagid) {
+      const remainingTags = allTags.value.filter(t => t.tagid !== tagid)
+      if (remainingTags.length > 0) {
+        // 切换到第一个剩余分组
+        router.push({ name: 'singerList', query: { tagid: remainingTags[0].tagid } })
+      } else {
+        // 没有其他分组，清空选择
+        router.push({ name: 'singerList' })
+      }
+    }
   } catch (error: any) {
     Message.show({ type: 'error', message: error.message || '删除分组失败' })
   }

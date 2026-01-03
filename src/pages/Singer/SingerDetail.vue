@@ -7,9 +7,10 @@ import SongItem from '~/components/SongItem.vue'
 import { invokeBiliApi, BLBL } from '~/api/bili'
 
 import { useBlblStore } from '~/blbl/store.ts'
-import { playCoreStore, useCollectionsStore } from '~/playcore/store'
+import { playCoreStore, useCollectionsStore, useSingerStore } from '~/playcore/store'
 import Loading from '~/components/loading/index.vue'
 import Message from '~/components/message'
+import Dialog from '~/components/dialog/index.vue'
 import { useDownloadStore } from '~/store/downloadStore'
 import { formatFileName } from '~/utils/filename'
 import { average } from 'color.js'
@@ -19,6 +20,7 @@ import DynamicHeader from '~/components/DynamicHeader.vue'
 
 const route = useRoute()
 const pcStore = playCoreStore()
+const singerStore = useSingerStore()
 const store = useBlblStore()
 const uiStore = useUIStore()
 const collectionsStore = useCollectionsStore()
@@ -28,6 +30,51 @@ const currentMid = computed(() => route.params.mid || '')
 // 歌手信息，响应式加载
 const info = ref(null)
 const isLoadingSingerInfo = ref(false)
+
+// 添加到分组的对话框状态
+const showAddToTagDialog = ref(false)
+const isAddingToTag = ref(false)
+const selectedTagsForAdd = ref([])
+
+// 关注/取消关注状态
+const isFollowing = ref(false)
+const isFollowLoading = ref(false)
+
+// 检查用户是否已关注
+const checkIsFollowing = () => {
+  if (!currentMid.value) return false
+  const follower = pcStore.allFollowersCache.find(
+    f => f.mid === currentMid.value || f.mid.toString() === currentMid.value.toString()
+  )
+  isFollowing.value = !!follower
+}
+
+// 处理关注/取消关注
+const handleFollowToggle = async () => {
+  if (!currentMid.value) return
+
+  isFollowLoading.value = true
+  try {
+    if (isFollowing.value) {
+      // 取消关注
+      await singerStore.unfollowUser(currentMid.value)
+      Message.show({ type: 'success', message: '已取消关注' })
+      isFollowing.value = false
+    } else {
+      // 关注
+      await singerStore.followUser(currentMid.value)
+      Message.show({ type: 'success', message: '已关注' })
+      isFollowing.value = true
+      // 刷新关注列表
+      await pcStore.fetchAllFollowers()
+    }
+  } catch (error) {
+    console.error(error)
+    Message.show({ type: 'error', message: error.message || '操作失败' })
+  } finally {
+    isFollowLoading.value = false
+  }
+}
 
 // 加载歌手信息
 const loadSingerInfo = async (mid) => {
@@ -61,6 +108,7 @@ const loadSingerInfo = async (mid) => {
 // 监听路由 mid 参数变化
 watch(() => currentMid.value, (newMid) => {
   loadSingerInfo(newMid)
+  checkIsFollowing()
 }, { immediate: true })
 
 // 初始化时确保关注列表有数据
@@ -188,38 +236,47 @@ function handlePlayUser() {
   store.play = renderList.value[0]
 }
 
-// 检查该up主是否已关注
-const isFollowed = computed(() => {
-  return pcStore.allFollowersCache.some(f => f.mid === currentMid.value)
-})
+// 打开添加到分组的对话框
+function openAddToTagDialog() {
+  selectedTagsForAdd.value = []
+  showAddToTagDialog.value = true
+}
 
-async function handleFollow() {
-  if (!currentMid.value) return
+// 添加用户到选中的分组
+async function handleAddUserToTags() {
+  if (!currentMid.value || selectedTagsForAdd.value.length === 0) {
+    Message.show({ type: 'warning', message: '请选择至少一个分组' })
+    return
+  }
+
+  isAddingToTag.value = true
   try {
-    if (isFollowed.value) {
-      // 调用B站API取消关注
-      await invokeBiliApi(BLBL.RELATION_MODIFY, {
-        fid: currentMid.value,
-        act: 2, // 2: 取消关注
-      })
-      Message.show({ type: 'success', message: '已取消关注' })
-      // 刷新关注列表缓存
-      await pcStore.fetchAllFollowers()
-    } else {
-      // 调用B站API关注
-      await invokeBiliApi(BLBL.RELATION_MODIFY, {
-        fid: currentMid.value,
-        act: 1, // 1: 关注
-      })
-      Message.show({ type: 'success', message: '关注成功' })
-      // 刷新关注列表缓存
+    await pcStore.addUserToTags(currentMid.value, selectedTagsForAdd.value)
+    Message.show({ type: 'success', message: '已添加到分组' })
+    showAddToTagDialog.value = false
+    selectedTagsForAdd.value = []
+
+    // 添加成功后，自动刷新相关分组的列表
+    const currentTagId = pcStore.currentTag
+    if (currentTagId !== null && selectedTagsForAdd.value.includes(currentTagId)) {
+      // 如果当前选中的分组在刚添加的分组列表中，则刷新该分组
+      await pcStore.fetchFollowersByTag(currentTagId)
+    } else if (currentTagId === null) {
+      // 如果在"所有分组"视图，则刷新所有分组
       await pcStore.fetchAllFollowers()
     }
-  } catch (e) {
-    console.error(e)
-    Message.show({ type: 'error', message: '操作失败' })
+  } catch (error) {
+    console.error(error)
+    Message.show({ type: 'error', message: error.message || '添加分组失败' })
+  } finally {
+    isAddingToTag.value = false
   }
 }
+
+// 获取所有分组列表
+const allTags = computed(() => {
+  return Object.values(pcStore.singerTagsCache).filter(tag => tag.tagid !== 0)
+})
 
 // 通过主进程打开新窗口查看歌手主页（优先使用 Electron 窗口，失败回退到浏览器）
 async function openSingerPage() {
@@ -520,11 +577,22 @@ function stopBulkDownload() {
           <div class="i-mingcute:download-2-fill text-md" />
         </div>
         <!-- 关注按钮 -->
+        <button :disabled="isFollowLoading" @click="handleFollowToggle" :class="[
+          'px-4 py-2 rounded-full font-bold text-sm transition-colors duration-300 flex items-center gap-2',
+          isFollowing
+            ? 'bg-[#1db954] hover:bg-[#1ed760] text-black'
+            : 'border border-white text-white hover:border-[#1db954] hover:text-[#1db954]'
+        ]">
+          <div
+            :class="isFollowLoading ? 'animate-spin i-mingcute:loading-3-line' : (isFollowing ? 'i-mingcute:check-line' : 'i-mingcute:add-line')" />
+          <span>{{ isFollowLoading ? '处理中...' : (isFollowing ? '已关注' : '关注') }}</span>
+        </button>
+        <!-- 添加到分组按钮 -->
         <button
-          class="p-1 rounded-full border duration-300 flex items-center gap-2 uppercase text-xs font-bold tracking-wider hover:scale-105 active:scale-95 border-none"
-          :class="isFollowed ? ' text-[#1db954]' : 'text-white'" @click="handleFollow">
-          <div :class="isFollowed ? 'i-mingcute:check-line' : 'i-mingcute:add-line'" />
-          <span>{{ isFollowed ? '已关注' : '关注' }}</span>
+          class="p-1 rounded-full border duration-300 flex items-center gap-2 uppercase text-xs font-bold tracking-wider hover:scale-105 active:scale-95 border-none text-white"
+          @click="openAddToTagDialog">
+          <div class="i-mingcute:folder-add-line" />
+          <span>添加到分组</span>
         </button>
       </template>
     </DynamicHeader>
@@ -569,6 +637,38 @@ function stopBulkDownload() {
         :is-downloading="bulkDownloading" :download-index="bulkDownloadIndex" :select-all="bulkSelectAll"
         @close="closeBulkDialog" @toggle-select-all="toggleSelectAll" @toggle-select="toggleSelect"
         @item-change="onBulkItemChange" @start-download="confirmBulkDownload" @stop-download="stopBulkDownload" />
+
+      <!-- 添加到分组对话框 -->
+      <Dialog :open="showAddToTagDialog" @visibleChange="showAddToTagDialog = $event" title="添加到分组">
+        <div class="space-y-4 min-w-[320px]">
+          <div v-if="allTags.length > 0">
+            <label class="text-sm font-medium text-gray-300 mb-3 block">选择要添加到的分组</label>
+            <div class="space-y-2 max-h-[300px] overflow-y-auto">
+              <label v-for="tag in allTags" :key="tag.tagid"
+                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-[#282828] transition-colors">
+                <input type="checkbox" :value="tag.tagid" v-model="selectedTagsForAdd"
+                  class="w-4 h-4 rounded cursor-pointer" />
+                <span class="text-sm text-gray-300">{{ tag.name }}</span>
+              </label>
+            </div>
+          </div>
+          <div v-else class="text-center py-8">
+            <p class="text-gray-400">暂无分组，请先<router-link to="/singer"
+                class="text-[#1db954] hover:underline">创建分组</router-link></p>
+          </div>
+        </div>
+
+        <template #footer>
+          <button @click="showAddToTagDialog = false"
+            class="px-4 py-2 rounded bg-[#282828] hover:bg-[#333333] text-white transition-colors">
+            取消
+          </button>
+          <button @click="handleAddUserToTags" :disabled="isAddingToTag || selectedTagsForAdd.length === 0"
+            class="px-4 py-2 rounded bg-[#1db954] hover:bg-[#1ed760] text-black font-medium transition-colors disabled:opacity-50">
+            {{ isAddingToTag ? '添加中...' : '添加' }}
+          </button>
+        </template>
+      </Dialog>
     </div>
   </section>
 </template>

@@ -70,6 +70,9 @@ export function playCoreStore() {
     unpinTag: singerStore.unpinTag,
     createTag: singerStore.createTag,
     deleteTag: singerStore.deleteTag,
+    addUserToTags: singerStore.addUserToTags,
+    followUser: singerStore.followUser,
+    unfollowUser: singerStore.unfollowUser,
 
     // --- Playlist Store 的 actions ---
     addToPlaylist: playlistStore.addToPlaylist,
