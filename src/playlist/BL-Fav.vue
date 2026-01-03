@@ -1,11 +1,6 @@
 <script lang="ts" setup>
-import type { song } from '~/playlist/store'
-// @ts-ignore
-import { invokeBiliApi, BLBL } from '~/api/bili'
-
-import { useBlblStore } from '~/blbl/store'
 import { usePlaylistStore } from '~/playlist/store'
-import { inject, computed } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const props = defineProps<{
@@ -14,7 +9,6 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
-const store = useBlblStore()
 const PLStore = usePlaylistStore()
 
 interface fav {
@@ -66,50 +60,6 @@ function handleCardClick() {
   }
 }
 
-async function handlePlayClick(e: Event) {
-  e.stopPropagation()
-
-  // 合集/列表不支持直接播放，需要进入详情页
-  if (props.tag === 'collected') {
-    handleCardClick()
-    return
-  }
-
-  // 收藏夹：快速加载前10条歌曲进行播放
-  try {
-    const res = await invokeBiliApi(BLBL.GET_FAV_INFO, {
-      media_id: props.fav.id,
-      pn: 1,
-    })
-
-    const { medias } = res.data
-    const songs: song[] = []
-
-    if (Array.isArray(medias)) {
-      medias.forEach((element: any) => {
-        songs.push({
-          title: element.title,
-          description: element.intro,
-          eno_song_type: 'bvid',
-          cover: element.cover,
-          author: element.upper.name,
-          duration: element.duration,
-          id: element.bvid || element.bv_id,
-          bvid: element.bvid || element.bv_id,
-          aid: element.id,
-        })
-      })
-    }
-
-    if (songs.length > 0) {
-      store.play = songs[0]
-      store.playList = songs
-    }
-  } catch (error) {
-    console.error('Failed to load fav list:', error)
-  }
-}
-
 // 获取封面
 const cover = computed(() => {
   const id = String(props.fav.id)
@@ -118,68 +68,27 @@ const cover = computed(() => {
 </script>
 
 <template>
-  <div class="h-64 flex items-stretch">
+  <div class="h-48 w-64 flex items-stretch">
     <div
-      class="flex-1 group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 bg-gradient-to-b from-[#282828] to-[#1a1a1a] hover:bg-gradient-to-b hover:from-[#333333] hover:to-[#1f1f1f] shadow-lg hover:shadow-2xl"
+      class="flex-1 group relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 shadow-lg hover:shadow-2xl flex flex-col"
       @click="handleCardClick">
+      <!-- 图片区域 -->
+      <div class="flex-1 relative bg-gray-600 flex items-center justify-center overflow-hidden">
+        <img v-if="cover" :src="cover"
+          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
 
-      <!-- 封面背景 -->
-      <div v-if="cover" class="absolute inset-0 z-0">
-        <img :src="cover"
-          class="w-full h-full object-cover opacity-30 group-hover:opacity-40 transition-opacity duration-500 blur-sm scale-110" />
-        <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-[#181818]/80 to-[#181818] z-10" />
+        <!-- 悬停遮罩 -->
+        <div class="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
       </div>
 
-      <!-- 背景光晕效果 -->
-      <div
-        class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40  group-hover:to-black/20 transition-all duration-300 z-10" />
-
-      <!-- 装饰背景 -->
-      <div
-        class="absolute -top-1/2 -right-1/2 w-96 h-96 bg-[#1db954] rounded-full blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500 z-0" />
-
-      <!-- 卡片内容 -->
-      <div class="relative h-full flex flex-col justify-between p-5 z-20">
-        <!-- 顶部装饰 -->
-        <div class="flex items-start justify-between mb-auto">
-          <div
-            class="w-12 h-12 rounded-full bg-gradient-to-br from-[#1db954] to-[#1aa34a] flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300 flex-shrink-0 overflow-hidden">
-            <!-- 如果有封面，显示小图，否则显示图标 -->
-            <img v-if="cover" :src="cover" class="w-full h-full object-cover" />
-            <div v-else class="i-mingcute:folder-fill text-white text-xl" />
-          </div>
-          <div class="flex flex-col items-end gap-1 ml-2">
-            <div class="text-gray-400 text-xs font-medium">
-              {{ tag === 'collected' ? '合集' : '收藏夹' }}
-            </div>
-            <div class="text-gray-400 text-sm font-bold">{{ props.fav.media_count || 0 }}</div>
-          </div>
-        </div>
-
-        <!-- 底部内容 -->
-        <div class="flex flex-col gap-4">
-          <!-- 标题 -->
-          <div>
-            <h3
-              class="text-white font-bold text-base line-clamp-2 mb-2 group-hover:text-[#1db954] transition-colors duration-300"
-              v-html="props.fav.title || props.fav.name" />
-            <p class="text-gray-400 text-sm">
-              {{ props.fav.media_count || 0 }} 个视频
-            </p>
-          </div>
-
-          <!-- 播放按钮 - 悬停时显示 -->
-          <button
-            class="w-12 h-12 rounded-full bg-[#1db954] text-black flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#1ed760] hover:scale-110 active:scale-95 flex-shrink-0"
-            @click="handlePlayClick" title="播放">
-            <div class="i-mingcute:play-fill text-xl pl-1" />
-          </button>
-        </div>
+      <!-- 信息区域 -->
+      <div class="bg-gradient-to-b from-[#282828] to-[#1a1a1a] px-3 py-2 flex flex-col justify-between h-12">
+        <h3 class="text-white font-bold text-xs line-clamp-1 group-hover:text-[#1db954] transition-colors duration-300"
+          v-html="props.fav.title || props.fav.name" />
+        <p class="text-gray-400 text-xs">
+          {{ props.fav.media_count || 0 }} 个视频
+        </p>
       </div>
-
-      <!-- 边框光晕效果 -->
-      <div
-        class="absolute inset-0 rounded-xl border border-[#1db954] opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
     </div>
   </div>
 </template>

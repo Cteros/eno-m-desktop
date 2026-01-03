@@ -41,8 +41,7 @@ onMounted(() => {
           <div class="w-1 h-8 bg-gradient-to-b from-[#1db954] to-transparent rounded-full" />
           我创建的收藏夹
         </h3>
-        <div v-if="PLStore.favList.length"
-          class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 auto-rows-max">
+        <div v-if="PLStore.favList.length" class="flex flex-wrap gap-8">
           <BLFav v-for="fav in PLStore.favList" :key="fav.id" :fav="fav" />
         </div>
         <div v-else class="text-gray-500 text-center py-12">
@@ -59,8 +58,7 @@ onMounted(() => {
         </h3>
 
         <!-- 其他收藏内容 -->
-        <div v-if="PLStore.collectedFavList.length > 0"
-          class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 auto-rows-max">
+        <div v-if="PLStore.collectedFavList.length > 0" class="flex flex-wrap gap-8">
           <BLFav v-for="fav in PLStore.collectedFavList" :key="fav.id" :fav="fav" tag="collected" />
         </div>
 
