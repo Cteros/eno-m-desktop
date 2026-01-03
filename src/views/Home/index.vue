@@ -39,8 +39,6 @@ const mainSong = computed(() => {
           <div class="text-xs font-bold uppercase tracking-wider text-white">Playlist</div>
           <h1 class="text-6xl font-black tracking-tighter shadow-sm text-white">Bilibili Music Rank</h1>
           <div class="flex items-center gap-2 text-sm font-medium text-white/80">
-            <span>每周五 18:00 更新</span>
-            <span class="w-1 h-1 bg-white rounded-full"></span>
             <span>{{ store.musicRankList.length }} 首歌曲</span>
           </div>
           <div
