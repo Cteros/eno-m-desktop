@@ -4,14 +4,14 @@ const props = defineProps({
   modelValue: {
     type: String,
     default: 'list',
-    validator: v => ['random', 'single', 'list'].includes(v)
+    validator: (v: string) => ['random', 'single', 'list'].includes(v)
   }
 })
 const emit = defineEmits(['update:modelValue', 'change'])
-const loopModes = ['random', 'single', 'list']
+const loopModes: string[] = ['random', 'single', 'list']
 const current = computed(() => props.modelValue)
 function handleLoopChange() {
-  const index = loopModes.indexOf(current.value)
+  const index = loopModes.indexOf(current.value as string)
   const next = loopModes[(index + 1) % loopModes.length]
   emit('update:modelValue', next)
   emit('change', next)

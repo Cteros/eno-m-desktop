@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup>
 import { useRouter, useRoute } from 'vue-router'
 import { inject, ref, computed, onMounted } from 'vue'
 import { playCoreStore } from '~/playcore/store'
@@ -8,7 +8,7 @@ import Dialog from './dialog/index.vue'
 
 const router = useRouter()
 const route = useRoute()
-const userInfo = inject('userInfo', null) as any
+const userInfo = inject('userInfo', null)
 const showLoginDialog = ref(false)
 const showCreateTagDialog = ref(false)
 const pcStore = playCoreStore()
@@ -29,7 +29,7 @@ const selectedTagId = computed(() => {
   return null
 })
 
-// 所有分组（排除默认分组 tagid=0）
+// 所有分组(排除默认分组 tagid=0)
 const allTags = computed(() => {
   return Object.values(pcStore.singerTagsCache).filter(tag => tag.tagid !== 0)
 })
@@ -65,30 +65,30 @@ function handleTogglePin(tagid, e) {
   }
 }
 
-async function handleDeleteTag(tagid: number, e: Event) {
+async function handleDeleteTag(tagid, e) {
   e.stopPropagation()
 
   try {
     const tag = pcStore.singerTagsCache[tagid]
-    if (!confirm(`确定要删除分组 "${tag?.name}" 吗？`)) {
+    if (!confirm(`确定要删除分组 "${tag?.name}" 吗?`)) {
       return
     }
 
     await pcStore.deleteTag(tagid)
     Message.show({ type: 'success', message: '分组已删除' })
 
-    // 如果删除的是当前选中的分组，切换到其他分组
+    // 如果删除的是当前选中的分组,切换到其他分组
     if (selectedTagId.value === tagid) {
       const remainingTags = allTags.value.filter(t => t.tagid !== tagid)
       if (remainingTags.length > 0) {
         // 切换到第一个剩余分组
         router.push({ name: 'singerList', query: { tagid: remainingTags[0].tagid } })
       } else {
-        // 没有其他分组，清空选择
+        // 没有其他分组,清空选择
         router.push({ name: 'singerList' })
       }
     }
-  } catch (error: any) {
+  } catch (error) {
     Message.show({ type: 'error', message: error.message || '删除分组失败' })
   }
 }
@@ -107,7 +107,7 @@ async function handleCreateTag() {
       newTagName.value = ''
       showCreateTagDialog.value = false
     }
-  } catch (error: any) {
+  } catch (error) {
     Message.show({ type: 'error', message: error.message || '创建分组失败' })
   } finally {
     isCreatingTag.value = false
@@ -153,11 +153,11 @@ async function handleCreateTag() {
       <LoginDialog v-model="showLoginDialog" />
     </div>
 
-    <!-- Singer 页面 Tab 栏 - 显示所有分组（排除默认分组） -->
+    <!-- Singer 页面 Tab 栏 - 显示所有分组(排除默认分组) -->
     <div v-if="currentRoute === 'singerList'" class="border-t border-[#333333] bg-[#1a1a1a]">
       <!-- 分组标签行 -->
       <div class="px-6 py-3 flex items-center gap-2 overflow-x-auto">
-        <!-- 分组标签（不显示"所有分组"和"默认分组"） -->
+        <!-- 分组标签(不显示"所有分组"和"默认分组") -->
         <button v-for="tag in allTags" :key="tag.tagid" @click="handleTagClick(tag.tagid)"
           class="px-4 py-2 rounded-full whitespace-nowrap transition-colors text-body-small flex items-center gap-2 flex-shrink-0"
           :class="selectedTagId === tag.tagid ? 'bg-[#1db954] text-black font-medium' : 'bg-[#282828] hover:bg-[#333333] text-white'">
@@ -179,7 +179,7 @@ async function handleCreateTag() {
       <!-- 分组操作行 -->
       <div v-if="selectedTagId !== null && allTags.some(tag => tag.tagid === selectedTagId)"
         class="px-6 py-2 border-t border-[#282828] flex items-center gap-3 bg-[#0a0a0a]">
-        <span class="text-xs text-gray-500">操作：</span>
+        <span class="text-xs text-gray-500">操作:</span>
         <button @click="handleTogglePin(selectedTagId, $event)"
           :class="pcStore.isTagPinned(selectedTagId) ? 'text-[#1db954]' : 'text-gray-400 hover:text-white'"
           class="flex items-center gap-1 text-sm transition-colors"
@@ -200,7 +200,7 @@ async function handleCreateTag() {
       <div class="space-y-4 min-w-[320px]">
         <div>
           <label class="text-sm font-medium text-gray-300 mb-2 block">分组名称</label>
-          <input v-model="newTagName" type="text" placeholder="例：我喜欢的歌手" maxlength="20" @keyup.enter="handleCreateTag"
+          <input v-model="newTagName" type="text" placeholder="例:我喜欢的歌手" maxlength="20" @keyup.enter="handleCreateTag"
             class="w-full px-3 py-2 rounded bg-[#1a1a1a] text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] border border-[#333333]"
             autofocus />
           <p class="text-xs text-gray-500 mt-1">{{ newTagName.length }}/20</p>
