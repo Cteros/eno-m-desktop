@@ -9,7 +9,8 @@
   },
   "files": [
     "dist",
-    "dist-electron"
+    "dist-electron",
+    "!**/.DS_Store"
   ],
   "publish": {
     "provider": "github",
@@ -34,6 +35,8 @@
     ]
   },
   "mac": {
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
     "identity": null,
     "icon": "public/512px.png",
     "target": [
