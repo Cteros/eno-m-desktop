@@ -354,9 +354,9 @@ const openBilibili = () => {
                 </p>
               </div>
               <!-- 收藏/更多操作 -->
-              <button class="text-white/40 hover:text-primary active:scale-90 transition-all mt-1">
+              <!-- <button class="text-white/40 hover:text-primary active:scale-90 transition-all mt-1">
                 <div class="i-mingcute:heart-line text-2xl" />
-              </button>
+              </button> -->
             </div>
 
             <!-- 进度条区域 -->
@@ -420,9 +420,9 @@ const openBilibili = () => {
               </div>
 
               <!-- 歌词/列表入口 (占位) -->
-              <button class="text-white/40 hover:text-white/80 transition-colors p-2 rounded-lg hover:bg-white/5">
+              <!-- <button class="text-white/40 hover:text-white/80 transition-colors p-2 rounded-lg hover:bg-white/5">
                 <div class="i-mingcute:list-check-line text-xl" />
-              </button>
+              </button> -->
             </div>
 
           </div>

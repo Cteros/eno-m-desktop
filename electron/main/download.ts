@@ -1,9 +1,10 @@
-import { dialog, app, ipcMain } from 'electron'
+import { dialog, app, ipcMain, nativeImage } from 'electron'
 import path from 'path'
 import fs from 'fs'
 // @ts-ignore
 import fetch from 'node-fetch'
 import { execSync } from 'child_process'
+import NodeID3 from 'node-id3'
 
 interface DownloadResult {
   success: boolean
@@ -12,12 +13,20 @@ interface DownloadResult {
   skipped?: boolean  // 文件已存在，跳过下载
 }
 
+interface SongInfo {
+  title?: string
+  artist?: string
+  album?: string
+  cover?: string
+}
+
 interface DownloadOptions {
   url: string
   fileName: string
   author?: string
   basePath?: string
   createAuthorFolder?: boolean
+  songInfo?: SongInfo
 }
 
 // 获取下载目录
@@ -137,17 +146,90 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
 }
 
 // M4S转MP3
-async function convertM4sToMp3(m4sPath: string, mp3Path: string): Promise<void> {
+async function convertM4sToMp3(m4sPath: string, mp3Path: string, songInfo?: SongInfo): Promise<void> {
   const ffmpegPath = getFFmpegPath()
   if (!ffmpegPath) {
     throw new Error('FFmpeg未安装，请先安装FFmpeg来使用转换功能')
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
-      // 使用ffmpeg转换m4s为mp3
+      // 1. 简单的音频转换 (m4s -> mp3)
+      // 使用最简单的命令，避免触发 FFmpeg 的复杂路径和系统库依赖问题
       const command = `"${ffmpegPath}" -i "${m4sPath}" -q:a 0 -map a "${mp3Path}" -y`
+      console.log(`[FFmpeg] Converting audio: ${command}`)
       execSync(command, { stdio: 'pipe' })
+
+      // 2. 写入 Tag 和 封面 (使用 node-id3)
+      if (songInfo && fs.existsSync(mp3Path)) {
+        try {
+          const tags: any = {
+            title: songInfo.title,
+            artist: songInfo.artist,
+            album: songInfo.album || songInfo.title,
+          }
+
+          if (songInfo.cover) {
+            let coverUrl = songInfo.cover.replace(/@.+$/, '')
+            console.log(`[ID3] Fetching cover: ${coverUrl}`)
+
+            try {
+              const response = await fetch(coverUrl, {
+                headers: {
+                  'Referer': 'https://www.bilibili.com/',
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                },
+              })
+              if (response.ok) {
+                const rawBuffer = await response.buffer()
+
+                // 使用 Electron 原生能力处理图片，确保转换为 JPEG 格式
+                // 这能解决 WebP 格式导致的不显示问题，保证最大兼容性
+                const image = nativeImage.createFromBuffer(rawBuffer)
+
+                if (!image.isEmpty()) {
+                  const jpegBuffer = image.toJPEG(90)
+                  console.log(`[ID3] Image converted to JPEG, size: ${jpegBuffer.length}`)
+
+                  tags.image = {
+                    mime: 'image/jpeg',
+                    type: {
+                      id: 3,
+                      name: 'front cover'
+                    },
+                    description: 'Cover',
+                    imageBuffer: jpegBuffer
+                  }
+                } else {
+                  console.warn('[ID3] Failed to process image buffer')
+                }
+              }
+            } catch (imgError) {
+              console.error('[ID3] Failed to download/process cover:', imgError)
+            }
+          }
+
+          // 写入 Tags
+          // 使用 update 而不是 write 可以保留已有信息（虽然这里是新建文件，但更稳妥）
+          // 注意：node-id3 的同步写入可能会阻塞主进程，但这里已经是 async 函数且在转换后，影响不大
+          const success = NodeID3.write(tags, mp3Path)
+          if (!success) {
+            // 尝试使用 update
+            const updateSuccess = NodeID3.update(tags, mp3Path)
+            if (!updateSuccess) {
+              console.warn('[ID3] Failed to write tags to file')
+            } else {
+              console.log('[ID3] Tags updated successfully')
+            }
+          } else {
+            console.log('[ID3] Tags written successfully')
+          }
+        } catch (tagError) {
+          console.error('[ID3] Error writing tags:', tagError)
+          // Tag 写入失败不应该导致整个下载流程失败
+        }
+      }
+
       resolve()
     } catch (error: any) {
       reject(new Error(`转换失败: ${error.message}`))
@@ -157,7 +239,7 @@ async function convertM4sToMp3(m4sPath: string, mp3Path: string): Promise<void> 
 
 // 下载并转换
 export async function downloadAndConvert(options: DownloadOptions): Promise<string> {
-  const { url, fileName, author, basePath, createAuthorFolder } = options
+  const { url, fileName, author, basePath, createAuthorFolder, songInfo } = options
 
   const { m4sPath, mp3Path } = getFinalSavePath(fileName, author, basePath, createAuthorFolder)
 
@@ -171,7 +253,7 @@ export async function downloadAndConvert(options: DownloadOptions): Promise<stri
     // ✅ 如果m4s文件存在但mp3不存在，直接进行转换
     if (fs.existsSync(m4sPath)) {
       console.log(`[CONVERT] m4s文件已存在，直接转换: ${m4sPath}`)
-      await convertM4sToMp3(m4sPath, mp3Path)
+      await convertM4sToMp3(m4sPath, mp3Path, songInfo)
       if (fs.existsSync(m4sPath)) {
         fs.unlinkSync(m4sPath)
       }
@@ -184,7 +266,7 @@ export async function downloadAndConvert(options: DownloadOptions): Promise<stri
 
     // 转换为mp3
     console.log(`[CONVERT] 开始转换: ${fileName}`)
-    await convertM4sToMp3(m4sPath, mp3Path)
+    await convertM4sToMp3(m4sPath, mp3Path, songInfo)
 
     // 删除临时m4s文件
     if (fs.existsSync(m4sPath)) {

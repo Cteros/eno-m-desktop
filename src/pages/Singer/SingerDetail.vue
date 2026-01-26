@@ -490,6 +490,12 @@ async function confirmBulkDownload() {
         url,
         fileName: fileName,
         author: item.author,
+        songInfo: {
+          title: item.title,
+          artist: item.author,
+          album: item.title,
+          cover: item.cover,
+        },
         basePath: downloadStore.config.downloadPath,
         createAuthorFolder: downloadStore.config.createAuthorFolder,
       })

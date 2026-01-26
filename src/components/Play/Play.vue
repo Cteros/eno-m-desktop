@@ -403,6 +403,12 @@ async function downloadSong() {
       url,
       fileName: fileName,
       author: store.play.author,
+      songInfo: {
+        title: store.play.title,
+        artist: store.play.author,
+        album: store.play.album || store.play.title, // B站视频通常没有专辑概念，可以用标题代替或留空
+        cover: store.play.cover,
+      },
       basePath: downloadStore.config.downloadPath,
       createAuthorFolder: downloadStore.config.createAuthorFolder,
     })
