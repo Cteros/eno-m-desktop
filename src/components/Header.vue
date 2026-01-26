@@ -118,8 +118,8 @@ async function handleCreateTag() {
 <template>
   <div class="flex flex-col gap-0 sticky top-0 z-10 bg-transparent">
     <!-- 导航栏 -->
-    <div class="flex items-center gap-4 h-16 px-6">
-      <div class="flex gap-2">
+    <div class="flex items-center gap-4 h-16 px-6" style="-webkit-app-region: drag">
+      <div class="flex gap-2" style="-webkit-app-region: no-drag">
         <button
           class="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center cursor-pointer hover:bg-black/70 text-white transition-colors"
           @click="goBack">
@@ -136,7 +136,7 @@ async function handleCreateTag() {
 
       <!-- 用户信息/登录按钮 -->
       <div class="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-        @click="showLoginDialog = true">
+        @click="showLoginDialog = true" style="-webkit-app-region: no-drag">
         <template v-if="userInfo?.isLogin">
           <img :src="userInfo?.face" alt="avatar" class="w-8 h-8 rounded-full border border-[#333]" />
           <span class="text-white text-sm">{{ userInfo?.uname }}</span>

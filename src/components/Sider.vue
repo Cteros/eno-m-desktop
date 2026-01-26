@@ -44,8 +44,12 @@ function handleUnpinTag(tagid, e) {
 <template>
   <aside class="h-full flex flex-col gap-2 w-[280px] min-w-[280px] select-none text-[#b3b3b3]">
     <!-- 顶部导航区 -->
-    <div :class="cn(panelClass, 'p-3 gap-2')">
-      <div class="px-4 py-2 flex items-center gap-2 mb-2 text-white">
+    <div :class="cn(panelClass, 'p-3 gap-2 relative')">
+      <!-- 窗口拖拽区域 -->
+      <div class="absolute top-0 left-0 right-0 h-12 z-50 pointer-events-none" style="-webkit-app-region: drag"></div>
+
+      <!-- Logo 区域 (增加顶部 margin 避开红绿灯) -->
+      <div class="px-4 py-2 flex items-center gap-2 mb-2 mt-4 text-white relative z-10">
         <div class="i-mingcute:music-3-fill text-2xl" />
         <span class="font-bold text-lg">ENO-M</span>
       </div>

@@ -55,6 +55,9 @@ function deleteSong(index: number) {
 </script>
 
 <template>
+  <!-- 全局顶部拖拽条 (覆盖 p-2 间隙) -->
+  <div class="fixed top-0 left-0 w-full h-4 z-[9999] pointer-events-none" style="-webkit-app-region: drag"></div>
+
   <main class="h-screen w-screen overflow-hidden text-[#b3b3b3] font-sans grid-layout p-2 gap-2">
     <GlobalGlow />
     <!-- 左侧侧边栏 -->

@@ -86,6 +86,14 @@ async function createWindow() {
     title: 'Main window',
     // icon: path.join(process.env.VITE_PUBLIC, 'favicon.ico'),
     icon: path.join(process.env.VITE_PUBLIC, 'download.png'),
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: 12, y: 12 },
+    vibrancy: 'fullscreen-ui', // macOS 毛玻璃效果
+    backgroundMaterial: 'acrylic', // Windows 11 云母/亚克力效果
     webPreferences: {
       preload,
       // Warning: Enable nodeIntegration and disable contextIsolation is not secure in production
