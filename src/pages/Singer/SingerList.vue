@@ -23,14 +23,14 @@ watch(() => tagidFromRoute.value, (newTagId) => {
   listKey.value++ // 切换分组时更新key，触发动画
 }, { immediate: true })
 
-// 当前分组的up主列表（mid列表）
+// 当前分组的up主列表（完整对象列表）
 const currentFollowers = computed(() => {
   if (selectedTagId.value === null) {
     // 显示所有关注的人
-    return store.allFollowersCache.map(f => f.mid)
+    return store.allFollowersCache
   } else {
     // 显示特定分组的人
-    return store.getFollowersByTag(selectedTagId.value).map(f => f.mid)
+    return store.getFollowersByTag(selectedTagId.value)
   }
 })
 
@@ -126,8 +126,9 @@ const syncData = async () => {
         <!-- 歌手网格 -->
         <TransitionGroup v-if="currentFollowers.length > 0" name="card-list" tag="div"
           class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 auto-rows-max">
-          <SingerItem v-for="(mid, index) in currentFollowers" :key="`${listKey}-${mid}`" :singer-mid="mid"
-            type="card-modern" class="h-56" :style="{ '--stagger-index': index }" />
+          <SingerItem v-for="(singer, index) in currentFollowers" :key="`${listKey}-${singer.mid}`"
+            :singer-mid="String(singer.mid)" :singer-info="singer" type="card-modern" class="h-56"
+            :style="{ '--stagger-index': Math.min(index, 10) }" />
         </TransitionGroup>
 
         <!-- 空状态 -->
@@ -174,7 +175,7 @@ const syncData = async () => {
 
   /* 交错动画效果 */
   .card-list-enter-active {
-    transition-delay: calc(var(--stagger-index, 0) * 0.05s);
+    transition-delay: calc(var(--stagger-index, 0) * 0.03s);
   }
 }
 </style>

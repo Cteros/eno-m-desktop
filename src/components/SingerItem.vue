@@ -8,6 +8,10 @@ import { computed, onMounted, watch } from 'vue'
 
 const props = defineProps({
   singerMid: String,
+  singerInfo: {
+    type: Object,
+    default: null
+  },
   canDel: {
     type: Boolean,
     default: false,
@@ -25,7 +29,7 @@ const props = defineProps({
 const router = useRouter()
 const store = useBlblStore()
 const collectionsStore = useCollectionsStore()
-const info = ref(null)
+const info = ref(props.singerInfo || null)
 const avatar = computed(() => info.value?.face || '')
 const name = computed(() => info.value?.uname || '')
 const desc = computed(() => {
@@ -34,14 +38,24 @@ const desc = computed(() => {
 })
 
 onMounted(() => {
-  if (props.singerMid && !info.value) {
+  if (info.value) return
+
+  if (props.singerMid) {
     collectionsStore.fetchSingerInfo(props.singerMid).then(result => {
       info.value = result
     })
   }
 })
 
+watch(() => props.singerInfo, (newInfo) => {
+  if (newInfo) {
+    info.value = newInfo
+  }
+})
+
 watch(() => props.singerMid, (newMid) => {
+  if (props.singerInfo) return // 如果有完整信息，忽略mid变化带来的请求
+
   if (newMid && newMid !== props.singerMid) {
     collectionsStore.fetchSingerInfo(newMid).then(result => {
       info.value = result
