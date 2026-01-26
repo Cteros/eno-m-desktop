@@ -10,7 +10,6 @@ const updateCheckRef = ref(null)
 const pcStore = playCoreStore()
 
 const navTabs = [
-  { icon: 'i-mingcute:home-5-fill', title: '首页', mode: 'home' },
   { icon: 'i-mingcute:search-2-fill', title: '搜索', mode: 'search' },
 ]
 

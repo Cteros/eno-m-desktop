@@ -68,7 +68,7 @@ function deleteSong(index: number) {
       <div class="flex-1 overflow-y-auto scrollbar-styled relative">
         <div class="fadeInWrapper min-h-full">
           <router-view v-slot="{ Component }">
-            <keep-alive include="search, playlist, singerList, setting, home">
+            <keep-alive include="search, playlist, singerList, setting">
               <component :is="Component" />
             </keep-alive>
           </router-view>
