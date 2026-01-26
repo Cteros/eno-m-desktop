@@ -41,11 +41,15 @@ interface State {
 	hit_ps: number;
 	hit_pn: number;
 	musicRankList: RemovableRef<any[]>;
+	audioContext: any;
+	analyser: any;
 }
 
 export const useBlblStore = defineStore("blbl", {
 	state: (): State => ({
 		howl: null,
+		audioContext: null,
+		analyser: null,
 		play: useStorage("playInfo", {}), // 当前播放的歌曲信息
 		playList: useStorage("playList", []), // 播放列表
 		count: 0,

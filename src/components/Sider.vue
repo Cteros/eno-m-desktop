@@ -99,8 +99,9 @@ function handleUnpinTag(tagid, e) {
         </div>
       </TabItem>
     </div>
-
-    <UpdateCheck ref="updateCheckRef" :custom-trigger="true" />
+    <Teleport to="body">
+      <UpdateCheck ref="updateCheckRef" :custom-trigger="true" />
+    </Teleport>
   </aside>
 </template>
 

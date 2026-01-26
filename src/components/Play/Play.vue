@@ -13,6 +13,7 @@ import { formatFileName } from '~/utils/filename'
 import { LoopSwitch } from '../common'
 import { Slider } from '../common'
 import { PlayControlBar } from '../common'
+import FullscreenPlayer from '../FullscreenPlayer/index.vue'
 
 // hooks & utils
 import useControl from './keys'
@@ -115,7 +116,42 @@ function initMusic() {
     html5: true,
     volume: 1,
     mute: false,
+    xhrWithCredentials: false,
+    format: ['m4s', 'mp3', 'aac'],
+    onload: () => {
+      // 音频加载完成后，设置crossOrigin
+      const audioNode = store.howl._sounds[0]?._node
+      if (audioNode) {
+        audioNode.crossOrigin = 'anonymous'
+
+        // 初始化音频可视化连接
+        try {
+          if (!store.audioContext) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext
+            store.audioContext = new AudioContext()
+          }
+
+          if (!store.analyser) {
+            store.analyser = store.audioContext.createAnalyser()
+            store.analyser.fftSize = 256
+          }
+
+          // 避免重复连接同一个 audio 元素
+          if (!audioNode._isConnectedToEno) {
+            const source = store.audioContext.createMediaElementSource(audioNode)
+            source.connect(store.analyser)
+            store.analyser.connect(store.audioContext.destination)
+            audioNode._isConnectedToEno = true
+          }
+        } catch (e) {
+          console.error('Audio Context Error:', e)
+        }
+      }
+    },
     onplay: () => {
+      if (store.audioContext && store.audioContext.state === 'suspended') {
+        store.audioContext.resume()
+      }
       isPlaying.value = true
       progress.total = store.howl.duration()
       requestAnimationFrame(updateProgess)
@@ -256,6 +292,12 @@ function changeProgress(e) {
   isDragging.value = false
 }
 
+// 处理全屏播放器的seek事件
+function handleFullscreenSeek(percent) {
+  if (!store.play?.id) return
+  store.howl.seek(progress.total * percent)
+}
+
 function toggleList() {
   // showList.value = !showList.value
   if (showPlaylist) {
@@ -317,6 +359,7 @@ function setVoice() {
 const fullScreenStatus = ref(false)
 const isDownloading = ref(false)
 const downloadProgress = ref(0)
+const showFullscreenPlayer = ref(false)
 
 function fullScreenTheBody() {
   // 切换全屏状态
@@ -327,18 +370,8 @@ function fullScreenTheBody() {
 
   fullScreenStatus.value = document.fullscreenElement
 }
-async function openBlTab() {
-  const url = `https://www.bilibili.com/video/${store.play.bvid}`
-  try {
-    await window.ipcRenderer.invoke('open-external-window', url)
-  } catch (e) {
-    console.warn('open-external-window failed, fallback to browser open', e)
-    try {
-      window.open(url, '_blank')
-    } catch (err) {
-      console.error('Fallback window.open failed', err)
-    }
-  }
+function openBlTab() {
+  showFullscreenPlayer.value = true
 }
 function changeVideoMode() {
   store.videoMode = store.videoMode === VIDEO_MODE.FLOATING ? VIDEO_MODE.DRAWER : VIDEO_MODE.HIDDEN
@@ -481,6 +514,9 @@ async function downloadSong() {
         <div class="i-mingcute:fullscreen-line hover:text-white cursor-pointer text-lg" @click="fullScreenTheBody" />
       </div>
     </div>
+    <FullscreenPlayer v-model:show="showFullscreenPlayer" :isPlaying="isPlaying" :progress="progress"
+      @play="playControl" @prev="() => change('prev')" @next="() => change('next')" @seek="handleFullscreenSeek"
+      @volume="handleChangeVoice" />
   </section>
 </template>
 
