@@ -106,7 +106,7 @@ function handleSingerDetail(singerMid) {
 
   <!-- Modern Card Style (现代高级卡片，匹配媒体库) -->
   <div v-else-if="type === 'card-modern'" :class="cn(
-    'relative h-56 w-full flex flex-col items-center justify-between p-5 rounded-xl bg-gradient-to-b from-[#282828] to-[#1a1a1a] hover:bg-gradient-to-b hover:from-[#333333] hover:to-[#1f1f1f] transition-all duration-300 cursor-pointer group shadow-lg hover:shadow-2xl overflow-hidden animate-slide-in-up hover:scale-103',
+    'relative h-56 w-full flex flex-col items-center justify-between p-5 rounded-xl bg-gradient-to-b from-[#282828] to-[#1a1a1a] hover:bg-gradient-to-b hover:from-[#333333] hover:to-[#1f1f1f] transition-all duration-300 cursor-pointer group shadow-lg hover:shadow-2xl overflow-hidden hover:scale-103',
     props.class
   )" @click.stop="handleSingerDetail(singerMid)">
     <template v-if="info">

@@ -43,11 +43,14 @@ export const usePlaylistStore = defineStore("playlist", {
         // 用户权限,取决于是否关注了开发者
         userPermission: false,
         userInfo: {} as any,
-        // BLBL 收藏夹列表缓存
-        favList: [] as CollectionItem[],
-        collectedFavList: [] as CollectionItem[],
+        // BLBL 收藏夹列表缓存（本地持久化）
+        favList: useLocalStorage("favList", [] as CollectionItem[]),
+        collectedFavList: useLocalStorage("collectedFavList", [] as CollectionItem[]),
         // 收藏夹详情缓存 (用于封面等)
         favInfoCache: useLocalStorage("favInfoCache", {} as Record<string, any>),
+        // 同步状态
+        isSyncing: false,
+        lastSyncTime: useLocalStorage("lastSyncTime", null as number | null),
     }),
     actions: {
         startAddSong(song: song) {
@@ -64,37 +67,58 @@ export const usePlaylistStore = defineStore("playlist", {
             this.listenLater.push(this.songToAdd!);
             this.addSongDialog = false;
         },
-        // 获取用户创建的收藏夹
+        // 获取用户创建的收藏夹（手动同步）
         async fetchFavLists(mid?: string) {
-            if (!mid) {
-                if (this.userInfo?.mid) {
-                    mid = this.userInfo.mid;
-                } else {
-                    try {
-                        const res = await invokeBiliApi(BLBL.GET_NAV);
-                        if (res.data && res.data.isLogin) {
-                            this.userInfo = res.data;
-                            mid = res.data.mid;
-                        }
-                    } catch (e) {
-                        console.error('Failed to fetch user info:', e);
-                    }
-                }
+            if (this.isSyncing) {
+                console.log('Already syncing, skip...');
+                return;
             }
 
-            if (!mid) return;
+            this.isSyncing = true;
 
             try {
+                if (!mid) {
+                    if (this.userInfo?.mid) {
+                        mid = this.userInfo.mid;
+                    } else {
+                        try {
+                            const res = await invokeBiliApi(BLBL.GET_NAV);
+                            if (res.data && res.data.isLogin) {
+                                this.userInfo = res.data;
+                                mid = res.data.mid;
+                            }
+                        } catch (e) {
+                            console.error('Failed to fetch user info:', e);
+                        }
+                    }
+                }
+
+                if (!mid) return;
+
                 const createdRes = await invokeBiliApi(BLBL.GET_FAV_LIST, { up_mid: mid });
                 this.favList = createdRes.data.list || [];
 
                 const collectedRes = await invokeBiliApi(BLBL.GET_COLLECTED_FAV_LIST, { up_mid: mid });
                 this.collectedFavList = collectedRes.data.list || [];
 
+                // 更新最后同步时间
+                this.lastSyncTime = Date.now();
+
                 // 获取列表后，开始后台获取封面
-                this.fetchFavCovers();
+                await this.fetchFavCovers();
+
+                Message.show({
+                    type: 'success',
+                    message: '同步成功'
+                });
             } catch (error) {
                 console.error('Failed to fetch fav lists:', error);
+                Message.show({
+                    type: 'error',
+                    message: '同步失败'
+                });
+            } finally {
+                this.isSyncing = false;
             }
         },
         // 获取单个收藏夹详情

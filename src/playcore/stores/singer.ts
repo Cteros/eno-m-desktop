@@ -54,8 +54,11 @@ export const useSingerStore = defineStore("playcore:singer", {
     isLoadingTags: false,
     isLoadingFollowers: false,
 
+    // 同步状态
+    isSyncing: false,
+
     // 最后更新时间
-    lastUpdateTime: 0,
+    lastUpdateTime: useLocalStorage<number | null>("playcore:last-sync-time", null),
   }),
 
   getters: {
@@ -92,7 +95,13 @@ export const useSingerStore = defineStore("playcore:singer", {
      * 获取所有关注分组
      */
     async fetchFollowingTags() {
+      if (this.isSyncing) {
+        console.log('Already syncing, skip...');
+        return;
+      }
+
       this.isLoadingTags = true;
+      this.isSyncing = true;
       try {
         const res = await invokeBiliApi(BLBL.GET_FOLLOWING_TAGS, {
           only_master: 0,
@@ -114,8 +123,10 @@ export const useSingerStore = defineStore("playcore:singer", {
         }
       } catch (error) {
         console.error("Failed to fetch following tags:", error);
+        throw error;
       } finally {
         this.isLoadingTags = false;
+        this.isSyncing = false;
       }
     },
 
@@ -123,7 +134,13 @@ export const useSingerStore = defineStore("playcore:singer", {
      * 获取所有关注的人（通过遍历所有分组）
      */
     async fetchAllFollowers() {
+      if (this.isSyncing) {
+        console.log('Already syncing, skip...');
+        return;
+      }
+
       this.isLoadingFollowers = true;
+      this.isSyncing = true;
       try {
         // 先确保分组列表已加载
         if (Object.keys(this.singerTagsCache).length === 0) {
@@ -156,8 +173,10 @@ export const useSingerStore = defineStore("playcore:singer", {
         this.lastUpdateTime = Date.now();
       } catch (error) {
         console.error("Failed to fetch all followers:", error);
+        throw error;
       } finally {
         this.isLoadingFollowers = false;
+        this.isSyncing = false;
       }
     },
 
@@ -217,7 +236,13 @@ export const useSingerStore = defineStore("playcore:singer", {
      * 获取指定分组的关注人（分页）
      */
     async fetchFollowersByTag(tagid: number, pageSize = 24) {
+      if (this.isSyncing) {
+        console.log('Already syncing, skip...');
+        return;
+      }
+
       this.isLoadingFollowers = true;
+      this.isSyncing = true;
       try {
         const followers: FollowingSinger[] = [];
         let pn = 1;
@@ -253,8 +278,10 @@ export const useSingerStore = defineStore("playcore:singer", {
         this.lastUpdateTime = Date.now();
       } catch (error) {
         console.error(`Failed to fetch followers for tag ${tagid}:`, error);
+        throw error;
       } finally {
         this.isLoadingFollowers = false;
+        this.isSyncing = false;
       }
     },
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, inject, watch, } from 'vue'
+import { inject, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlaylistStore } from './store'
 import BLFav from './BL-Fav.vue'
@@ -8,15 +8,27 @@ const router = useRouter()
 const userInfo = inject<any>('userInfo')
 const PLStore = usePlaylistStore()
 
-watch(userInfo, () => {
-  if (!userInfo.value.mid) return
-  PLStore.fetchFavLists(userInfo.value.mid)
-})
-
-onMounted(() => {
-  if (userInfo.value.mid) {
-    PLStore.fetchFavLists(userInfo.value.mid)
+// 手动同步数据
+const handleSync = async () => {
+  if (!userInfo.value.mid) {
+    return
   }
+  await PLStore.fetchFavLists(userInfo.value.mid)
+}
+
+// 格式化最后同步时间
+const lastSyncTimeText = computed(() => {
+  if (!PLStore.lastSyncTime) return '从未同步'
+  const now = Date.now()
+  const diff = now - PLStore.lastSyncTime
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  return `${days}天前`
 })
 
 </script>
@@ -27,12 +39,29 @@ onMounted(() => {
     <div class="w-full max-w-7xl mx-auto px-8 py-12 pt-0">
       <!-- 标题 -->
       <div class="mb-12 mt-6">
-        <h2 class="text-4xl font-black text-white mb-2 tracking-tight">
-          我的收藏
-        </h2>
-        <p class="text-gray-400 text-sm">
-          {{ PLStore.favList.length + PLStore.collectedFavList.length }} 个收藏夹
-        </p>
+        <div class="flex items-end justify-between mb-4">
+          <div>
+            <h2 class="text-4xl font-black text-white mb-2 tracking-tight">
+              我的收藏
+            </h2>
+            <p class="text-gray-400 text-sm">
+              {{ PLStore.favList.length + PLStore.collectedFavList.length }} 个收藏夹
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-500">
+              最后同步: {{ lastSyncTimeText }}
+            </span>
+            <button @click="handleSync" :disabled="PLStore.isSyncing || !userInfo.mid"
+              class="px-4 py-2 bg-[#1db954] text-white rounded-full font-medium hover:bg-[#1ed760] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
+              <div :class="[
+                'i-mingcute:refresh-2-line text-lg',
+                PLStore.isSyncing ? 'animate-spin' : ''
+              ]" />
+              {{ PLStore.isSyncing ? '同步中...' : '同步数据' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 我创建的收藏夹 -->
