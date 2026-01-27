@@ -56,7 +56,7 @@ const updateStatusColor = computed(() => {
       <!-- 发布说明 -->
       <div v-if="releaseNotes" class="p-4 rounded-lg bg-white/5 border border-white/5">
         <p class="text-sm font-medium text-white mb-2">更新内容</p>
-        <p class="text-xs text-gray-400 whitespace-pre-wrap leading-relaxed">{{ releaseNotes }}</p>
+        <div class="text-xs text-gray-400 leading-relaxed" v-html="releaseNotes"></div>
       </div>
     </div>
 
