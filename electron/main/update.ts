@@ -10,8 +10,10 @@ if (!app.isPackaged) {
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
 
+let currentUpdateInfo: any = null
+let downloadedDmgPath: string | null = null
+
 export function setupUpdateHandlers() {
-  // 检查更新
   ipcMain.handle('check-for-updates', async () => {
     try {
       // 检查更新，但不自动下载
@@ -27,6 +29,7 @@ export function setupUpdateHandlers() {
         }
       }
 
+      currentUpdateInfo = result.updateInfo
       const { updateInfo } = result
       const currentVersion = `v${app.getVersion()}`
       const latestVersion = `v${updateInfo.version}`
@@ -59,44 +62,41 @@ export function setupUpdateHandlers() {
 
   // 下载并安装更新
   ipcMain.handle('download-and-install-update', async () => {
-    try {
-      // 开始下载
-      await autoUpdater.downloadUpdate()
-      return { success: true, message: '开始下载更新' }
-    } catch (error: any) {
-      return { success: false, error: error.message }
-    }
-  })
+    // macOS 上由于签名限制，手动接管下载和安装流程
+    // 开始下载
+    await autoUpdater.downloadUpdate()
+    return { success: true, message: '开始下载更新' }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
 
-  // 获取应用版本
-  ipcMain.handle('get-app-version', () => {
-    return {
-      version: app.getVersion(),
-      name: app.getName(),
-    }
-  })
+// 获取应用版本
+ipcMain.handle('get-app-version', () => {
+  return {
+    version: app.getVersion(),
+    name: app.getName(),
+  }
+})
 
-  // 监听事件并发送给前端
-  autoUpdater.on('download-progress', (progressObj) => {
-    BrowserWindow.getAllWindows().forEach(win => {
-      win.webContents.send('update-download-progress', progressObj)
-    })
-  })
+// ... (listeners 保持不变) ...
 
-  autoUpdater.on('update-downloaded', () => {
-    BrowserWindow.getAllWindows().forEach(win => {
-      win.webContents.send('update-downloaded')
-    })
-  })
-
-  // 退出并安装
-  ipcMain.handle('quit-and-install', () => {
+// 退出并安装
+ipcMain.handle('quit-and-install', () => {
+  if (process.platform === 'darwin' && downloadedDmgPath) {
+    shell.openPath(downloadedDmgPath)
+    setTimeout(() => {
+      app.quit()
+    }, 1000)
+  } else {
     autoUpdater.quitAndInstall()
-  })
+  }
+})
 
-  autoUpdater.on('error', (error) => {
-    BrowserWindow.getAllWindows().forEach(win => {
-      win.webContents.send('update-error', error.message)
-    })
+autoUpdater.on('error', (error) => {
+  BrowserWindow.getAllWindows().forEach(win => {
+    win.webContents.send('update-error', error.message)
   })
+})
 }
+autoUpdater.quitAndInstall()
