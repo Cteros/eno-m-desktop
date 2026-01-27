@@ -52,9 +52,8 @@
           <div v-if="releaseNotes" class="flex flex-col gap-2">
             <h4 class="text-xs font-bold text-gray-300">更新说明</h4>
             <div
-              class="bg-black/20 rounded p-2 text-xs text-gray-400 leading-relaxed max-h-[100px] overflow-y-auto custom-scrollbar">
-              {{ releaseNotes.slice(0, 200) }}
-              <span v-if="releaseNotes.length > 200">...</span>
+              class="bg-black/20 rounded p-2 text-xs text-gray-400 leading-relaxed max-h-[100px] overflow-y-auto custom-scrollbar"
+              v-html="releaseNotes">
             </div>
           </div>
 
