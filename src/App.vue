@@ -15,7 +15,7 @@ import { invokeBiliApi, BLBL } from './api/bili'
 
 const userInfo = ref({})
 const store = useBlblStore()
-console.log('App version: 3.2.12')
+console.log('App version: 3.2.13')
 
 // 播放列表显隐状态（可以由Play组件或全局控制）
 const showPlaylist = ref(false)
