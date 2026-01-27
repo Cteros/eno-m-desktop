@@ -192,22 +192,22 @@ export function setupUpdateHandlers() {
       const escapedScriptPath = installScriptPath.replace(/"/g, '\\"')
 
       const scriptContent = `#!/bin/bash
-  set -e
-  LOG_FILE="$HOME/Library/Logs/eno-m-update.log"
-  DMG_PATH="${escapedDmgPath}"
-  APP_PATH="${escapedAppPath}"
-  SCRIPT_PATH="${escapedScriptPath}"
+    set -e
+    LOG_FILE="$HOME/Library/Logs/eno-m-update.log"
+    DMG_PATH="${escapedDmgPath}"
+    APP_PATH="${escapedAppPath}"
+    SCRIPT_PATH="${escapedScriptPath}"
 
-  echo "[$(date)] Starting update process..." > "$LOG_FILE"
-  echo "DMG: $DMG_PATH" >> "$LOG_FILE"
-  echo "Target: $APP_PATH" >> "$LOG_FILE"
+    echo "[$(date)] Starting update process..." > "$LOG_FILE"
+    echo "DMG: $DMG_PATH" >> "$LOG_FILE"
+    echo "Target: $APP_PATH" >> "$LOG_FILE"
 
-  sleep 1
+    sleep 1
 
-  MOUNT_POINT="/Volumes/ENO-M-Update-$RANDOM"
-  mkdir -p "$MOUNT_POINT"
+    MOUNT_POINT=$(mktemp -d /tmp/eno-m-update-XXXXXX)
+    echo "Mounting to $MOUNT_POINT..." >> "$LOG_FILE"
 
-  if hdiutil attach -nobrowse -noautoopen -mountpoint "$MOUNT_POINT" "$DMG_PATH" >> "$LOG_FILE" 2>&1; then
+    if hdiutil attach -nobrowse -noautoopen -mountpoint "$MOUNT_POINT" "$DMG_PATH" >> "$LOG_FILE" 2>&1; then
     SOURCE_APP=$(find "$MOUNT_POINT" -maxdepth 1 -name "*.app" -print -quit)
     echo "Source App found: $SOURCE_APP" >> "$LOG_FILE"
 
@@ -228,6 +228,7 @@ export function setupUpdateHandlers() {
     fi
 
     hdiutil detach "$MOUNT_POINT" >> "$LOG_FILE" 2>&1 || true
+    rm -rf "$MOUNT_POINT"
   else
     echo "Failed to mount DMG." >> "$LOG_FILE"
   fi
