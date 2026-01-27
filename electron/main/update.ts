@@ -187,24 +187,56 @@ export function setupUpdateHandlers() {
     if (process.platform === 'darwin' && downloadedDmgPath) {
       const currentAppPath = app.getPath('exe').replace(/\.app\/Contents\/MacOS\/.*$/, '.app')
       const installScriptPath = path.join(app.getPath('temp'), 'install-update.sh')
+      const escapedDmgPath = downloadedDmgPath.replace(/"/g, '\\"')
+      const escapedAppPath = currentAppPath.replace(/"/g, '\\"')
+      const escapedScriptPath = installScriptPath.replace(/"/g, '\\"')
 
       const scriptContent = `#!/bin/bash
-sleep 2
-MOUNT_POINT=$(hdiutil attach -nobrowse -noautoopen "${downloadedDmgPath}" | tail -n1 | awk '{print $3}' | tr -d '\n')
-if [ -z "$MOUNT_POINT" ]; then
-    MOUNT_POINT=$(hdiutil attach -nobrowse -noautoopen "${downloadedDmgPath}" | grep "/Volumes" | awk -F '/Volumes' '{print "/Volumes"$2}' | tr -d '\n')
-fi
+  set -e
+  LOG_FILE="$HOME/Library/Logs/eno-m-update.log"
+  DMG_PATH="${escapedDmgPath}"
+  APP_PATH="${escapedAppPath}"
+  SCRIPT_PATH="${escapedScriptPath}"
 
-if [ -n "$MOUNT_POINT" ]; then
-    rm -rf "${currentAppPath}"
-    cp -R "$MOUNT_POINT/"*.app "${currentAppPath}"
-    hdiutil detach "$MOUNT_POINT"
-    open "${currentAppPath}"
-fi
-rm -f "${installScriptPath}"
-`
+  echo "[$(date)] Starting update process..." > "$LOG_FILE"
+  echo "DMG: $DMG_PATH" >> "$LOG_FILE"
+  echo "Target: $APP_PATH" >> "$LOG_FILE"
+
+  sleep 1
+
+  MOUNT_POINT="/Volumes/ENO-M-Update-$RANDOM"
+  mkdir -p "$MOUNT_POINT"
+
+  if hdiutil attach -nobrowse -noautoopen -mountpoint "$MOUNT_POINT" "$DMG_PATH" >> "$LOG_FILE" 2>&1; then
+    SOURCE_APP=$(find "$MOUNT_POINT" -maxdepth 1 -name "*.app" -print -quit)
+    echo "Source App found: $SOURCE_APP" >> "$LOG_FILE"
+
+    if [ -n "$SOURCE_APP" ] && [ -d "$SOURCE_APP" ]; then
+      echo "Replacing existing app..." >> "$LOG_FILE"
+      rm -rf "$APP_PATH"
+
+      cp -R "$SOURCE_APP" "$APP_PATH"
+      if [ -d "$APP_PATH" ]; then
+        xattr -r -d com.apple.quarantine "$APP_PATH" 2>/dev/null || true
+        echo "Copy successful, relaunching..." >> "$LOG_FILE"
+        open "$APP_PATH"
+      else
+        echo "Copy failed." >> "$LOG_FILE"
+      fi
+    else
+      echo "No .app found in DMG." >> "$LOG_FILE"
+    fi
+
+    hdiutil detach "$MOUNT_POINT" >> "$LOG_FILE" 2>&1 || true
+  else
+    echo "Failed to mount DMG." >> "$LOG_FILE"
+  fi
+
+  rm -f "$SCRIPT_PATH"
+  echo "Done." >> "$LOG_FILE"
+  `
       fs.writeFileSync(installScriptPath, scriptContent)
-      fs.chmodSync(installScriptPath, '755')
+      fs.chmodSync(installScriptPath, 0o755)
 
       spawn(installScriptPath, {
         detached: true,
