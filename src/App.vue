@@ -70,11 +70,13 @@ function deleteSong(index: number) {
     <div class="grid-main bg-[#121212] rounded-lg overflow-hidden relative flex flex-col">
       <Header />
       <div class="flex-1 overflow-y-auto scrollbar-styled relative">
-        <div class="fadeInWrapper min-h-full">
+        <div class="min-h-full">
           <router-view v-slot="{ Component }">
-            <keep-alive include="search, playlist, singerList, setting">
-              <component :is="Component" />
-            </keep-alive>
+            <transition name="fade">
+              <keep-alive include="search, playlist, singerList, setting">
+                <component :is="Component" />
+              </keep-alive>
+            </transition>
           </router-view>
         </div>
       </div>
@@ -181,7 +183,7 @@ img::before {
   background-repeat: no-repeat;
 }
 
-.fadeInWrapper>* {
+.fade-enter-active {
   animation: fadeIn 0.5s;
 }
 

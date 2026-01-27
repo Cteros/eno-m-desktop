@@ -148,7 +148,6 @@ const syncData = async () => {
   height: 100%;
 
   /* TransitionGroup 动画 */
-  .card-list-move,
   .card-list-enter-active {
     transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
@@ -163,14 +162,9 @@ const syncData = async () => {
     transform: translateY(0) scale(1);
   }
 
+  /* 优化：列表切换时，旧元素直接隐藏，避免布局挤压或 absolute 导致的闪烁 */
   .card-list-leave-active {
-    transition: all 0.3s ease;
-    position: absolute;
-  }
-
-  .card-list-leave-to {
-    opacity: 0;
-    transform: scale(0.9);
+    display: none;
   }
 
   /* 交错动画效果 */
