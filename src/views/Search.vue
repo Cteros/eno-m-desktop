@@ -17,11 +17,20 @@ const pageNum = ref(1)
 const keyword = ref('')
 const result = ref([])
 const isLoading = ref(false)
+const errorMessage = ref('')
 // 单个搜索结果过少时不触发滚动加载
 const enableScrollGetMore = ref(true)
 
 function isUrl(url) {
   return /bilibili.com/.test(url)
+}
+
+// 检查响应是否为HTML（表示被风控）
+function isHtmlResponse(data) {
+  if (typeof data === 'string') {
+    return /<html|<head|<body/i.test(data)
+  }
+  return false
 }
 
 // 滚动加载
@@ -40,17 +49,20 @@ useInfiniteScroll(
 
 // 加载函数
 async function getMoreData() {
-  isLoading.value = true
   pageNum.value++
-  
+
   try {
     const res = await invokeBiliApi(BLBL.SEARCH, {
       keyword: keyword.value,
       page: pageNum.value,
     })
-    
-    isLoading.value = false
-    
+
+    // 检查是否被风控
+    if (isHtmlResponse(res)) {
+      errorMessage.value = '请求被风控，请稍后重试'
+      return []
+    }
+
     const list = res.data?.result || []
 
     return list.map((item) => {
@@ -58,7 +70,7 @@ async function getMoreData() {
       if (cover && cover.startsWith('//')) {
         cover = 'http:' + cover
       }
-      
+
       return {
         id: item.id || item.bvid,
         eno_song_type: 'bvid',
@@ -74,26 +86,36 @@ async function getMoreData() {
     })
   } catch (error) {
     console.error('Search error:', error)
-    isLoading.value = false
     return []
+  } finally {
+    isLoading.value = false
   }
 }
 
 // 搜索
 async function handleSearch() {
   if (!keyword.value) return
-  
+
+  isLoading.value = true
+  errorMessage.value = ''
   enableScrollGetMore.value = true
-  
-  if (isUrl(keyword.value)) {
-    const match = keyword.value.match(/BV([a-zA-Z0-9]+)/)
-    if (match) {
-      const bvid = match[0]
-      // 获取对应的歌曲
-      try {
-        isLoading.value = true
+  pageNum.value = 0
+  result.value = []
+
+  try {
+    if (isUrl(keyword.value)) {
+      const match = keyword.value.match(/BV([a-zA-Z0-9]+)/)
+      if (match) {
+        const bvid = match[0]
+        // 获取对应的歌曲
         const res = await invokeBiliApi(BLBL.GET_VIDEO_INFO, { bvid })
-        isLoading.value = false
+
+        // 检查是否被风控
+        if (isHtmlResponse(res)) {
+          errorMessage.value = '请求被风控，请稍后重试'
+          return
+        }
+
         const item = res.data
         if (item) {
           const searchSong = {
@@ -112,50 +134,55 @@ async function handleSearch() {
           result.value = [searchSong]
           enableScrollGetMore.value = false
         }
-      } catch (e) {
-        console.error(e)
-        isLoading.value = false
       }
     }
-  }
-  else {
-    pageNum.value = 0
-    result.value = []
-    const newList = await getMoreData()
-    result.value = newList
+    else {
+      const newList = await getMoreData()
+      result.value = newList
+    }
+  } catch (error) {
+    console.error('Search failed:', error)
+  } finally {
+    isLoading.value = false
   }
 }
 </script>
 
 <template>
-  <section class="w-full h-[80vh] flex flex-col pt-6 px-8 bg-[#121212]">
+  <section class="w-full h-[80vh] flex flex-col pt-6 px-2 bg-[#121212]">
     <!-- 搜索输入框 -->
     <div class="w-[50vw] relative group mb-8 mx-auto">
-      <div class="absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+      <div class="absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none ml-1">
         <div class="i-mingcute:search-line text-xl text-[#b3b3b3] group-focus-within:text-white transition-colors" />
       </div>
-      <input
-        id="search"
-        v-model="keyword"
-        type="text"
+      <input id="search" v-model="keyword" type="text"
         class="w-full h-12 pl-10 pr-10 rounded-full bg-[#242424] hover:bg-[#2a2a2a] hover:ring-1 hover:ring-[#ffffff33] focus:bg-[#2a2a2a] focus:ring-2 focus:ring-white outline-none text-white text-sm transition-all placeholder:text-[#757575]"
-        placeholder="想听什么？"
-        @keyup.enter="handleSearch"
-        autocomplete="off"
-      >
-      <div v-if="keyword" class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-[#b3b3b3] hover:text-white" @click="keyword = ''">
-        <div class="i-mingcute:close-line text-lg" />
+        placeholder="想听什么？" @keyup.enter="handleSearch" autocomplete="off">
+      <div v-if="keyword"
+        class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-[#b3b3b3] hover:text-white"
+        @click="keyword = ''">
+        <div class="i-mingcute:close-line text-lg mr-2" />
       </div>
-      <Loading v-if="isLoading" class="absolute right-3 top-1/2 -translate-y-1/2" />
+    </div>
+
+    <!-- Loading 指示器 -->
+    <div v-if="isLoading" class="flex justify-center items-center py-8">
+      <Loading />
+    </div>
+
+    <!-- 错误提示 -->
+    <div v-if="errorMessage" class="flex justify-center items-center py-8 text-red-500">
+      <div class="text-center">
+        <div class="i-mingcute:alert-circle-fill text-4xl mb-2"></div>
+        <p class="text-lg">{{ errorMessage }}</p>
+      </div>
     </div>
 
     <!-- 搜索结果 -->
-    <div 
-      v-if="result.length" 
-      ref="scrollRef" 
-      class="flex-1 w-full overflow-y-auto scrollbar-styled pb-8"
-    >
-      <div class="grid grid-cols-[3rem_3.5rem_1fr_4rem_3rem] gap-4 text-[#b3b3b3] text-sm border-b border-[#ffffff1a] pb-2 mb-4 px-4 sticky top-0 bg-[#121212] z-10">
+    <div v-if="result.length && !isLoading && !errorMessage" ref="scrollRef"
+      class="flex-1 w-full overflow-y-auto scrollbar-styled pb-8">
+      <div
+        class="grid grid-cols-[3rem_3.5rem_1fr_4rem_3rem] gap-4 text-[#b3b3b3] text-sm border-b border-[#ffffff1a] pb-2 mb-4 px-4 sticky top-0 bg-[#121212] z-10">
         <div class="text-center">#</div>
         <div></div>
         <div>标题</div>
@@ -163,18 +190,13 @@ async function handleSearch() {
         <div></div>
       </div>
 
-      <SongItem 
-        v-for="(item, index) in result" 
-        :key="item.bvid" 
-        :song="item"
-        :index="index + 1" 
-        check-pages 
-        class="hover:bg-[#ffffff1a] rounded-md px-2"
-      />
+      <SongItem v-for="(item, index) in result" :key="item.bvid" :song="item" :index="index + 1" check-pages
+        class="hover:bg-[#ffffff1a] rounded-md px-2" />
     </div>
 
     <!-- 初始状态/空状态 -->
-    <div v-else class="flex-1 flex flex-col items-center justify-center text-[#b3b3b3] gap-4">
+    <div v-if="!result.length && !isLoading && !errorMessage"
+      class="flex-1 flex flex-col items-center justify-center text-[#b3b3b3] gap-4">
       <div class="i-mingcute:music-2-fill text-6xl opacity-50"></div>
       <div class="text-center">
         <h3 class="font-bold text-white mb-2">搜索 Bilibili 视频或音频</h3>
