@@ -10,8 +10,8 @@
     </div>
 
     <!-- 更新对话框 -->
-    <Dialog :open="showDialog" title="检查更新" @visibleChange="closeDialog" class="w-[400px]">
-      <div class="flex flex-col justify-center min-h-[120px] px-1 py-2">
+    <Dialog :open="showDialog" title="检查更新" @visibleChange="closeDialog" class="w-[400px]" bodyClass="pt-3">
+      <div class="flex flex-col justify-center min-h-[120px]">
         <!-- 检查中 -->
         <div v-if="checking" class="flex flex-col items-center gap-3 py-4">
           <div class="i-svg-spinners:90-ring-with-bg text-2xl text-[#667eea]" />
@@ -76,25 +76,21 @@
       </div>
 
       <template #footer>
-        <button @click="closeDialog"
-          class="px-3 py-1.5 rounded text-xs font-medium text-gray-400 hover:bg-white/5 transition-colors">
+        <button @click="closeDialog" class="eno-btn eno-btn-ghost">
           {{ updateAvailable && downloading ? '最小化' : '关闭' }}
         </button>
 
-        <button v-if="!checking && !hasChecked" @click="checkUpdates"
-          class="px-4 py-1.5 rounded bg-[#667eea] hover:bg-[#5a6fd6] text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        <button v-if="!checking && !hasChecked" @click="checkUpdates" class="eno-btn eno-btn-primary"
           :disabled="checking || downloading">
           检查更新
         </button>
 
         <button v-else-if="updateAvailable && !downloading && !downloaded" @click="downloadUpdate"
-          class="px-4 py-1.5 rounded bg-[#667eea] hover:bg-[#5a6fd6] text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          :disabled="downloading">
+          class="eno-btn eno-btn-primary" :disabled="downloading">
           立即更新
         </button>
 
-        <button v-else-if="downloaded" @click="quitAndInstall"
-          class="px-4 py-1.5 rounded bg-[#667eea] hover:bg-[#5a6fd6] text-white text-xs font-medium transition-colors">
+        <button v-else-if="downloaded" @click="quitAndInstall" class="eno-btn eno-btn-primary">
           重启并安装
         </button>
       </template>

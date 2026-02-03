@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useBlblStore } from '../../blbl/store'
 import { useLocalStorage } from '@vueuse/core'
-import { Slider } from '../common'
+import { ProgressBar, Slider } from '../common'
+import { useImageThemeColor } from '@/composables/useImageThemeColor'
 
 const props = defineProps({
   show: {
@@ -25,56 +26,16 @@ const store = useBlblStore()
 const canvasRef = ref(null)
 const containerRef = ref(null)
 const themeColor = ref('#1db954')
-const animationFrameId = ref(null)
+const animationFrameId = ref(0)
 const voice = useLocalStorage('voice', 100)
-const isDragging = ref(false)
+const { getColor } = useImageThemeColor()
 
-// 提取主题色
-const extractThemeColor = async (imageUrl) => {
-  if (!imageUrl) return '#1db954'
-
-  try {
-    const img = new Image()
-    img.crossOrigin = 'Anonymous'
-    img.src = imageUrl
-
-    await new Promise((resolve, reject) => {
-      img.onload = resolve
-      img.onerror = reject
-    })
-
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    canvas.width = img.width
-    canvas.height = img.height
-    ctx.drawImage(img, 0, 0)
-
-    // 采样多个点获取主色调
-    const samples = []
-    const step = Math.floor(img.width / 5)
-    for (let x = step; x < img.width; x += step) {
-      for (let y = step; y < img.height; y += step) {
-        const pixel = ctx.getImageData(x, y, 1, 1).data
-        samples.push({ r: pixel[0], g: pixel[1], b: pixel[2] })
-      }
-    }
-
-    // 计算平均颜色
-    const avg = samples.reduce((acc, color) => ({
-      r: acc.r + color.r,
-      g: acc.g + color.g,
-      b: acc.b + color.b
-    }), { r: 0, g: 0, b: 0 })
-
-    avg.r = Math.floor(avg.r / samples.length)
-    avg.g = Math.floor(avg.g / samples.length)
-    avg.b = Math.floor(avg.b / samples.length)
-
-    return `rgb(${avg.r}, ${avg.g}, ${avg.b})`
-  } catch (error) {
-    console.error('Failed to extract theme color:', error)
-    return '#1db954'
-  }
+const updateThemeFromCover = async (imageUrl) => {
+  if (!imageUrl)
+    return
+  const color = await getColor(imageUrl, '#1db954')
+  if (color)
+    themeColor.value = color
 }
 
 // 将 RGB 颜色转换为 RGBA
@@ -154,9 +115,8 @@ const drawVisualization = () => {
     ctx.fill()
   }
 
-  if (props.show) {
+  if (props.show)
     animationFrameId.value = requestAnimationFrame(drawVisualization)
-  }
 }
 
 // 音频控制
@@ -179,25 +139,16 @@ const cycleLoopMode = () => {
   store.loopMode = modes[nextIndex]
 }
 
-const changeProgress = (value) => {
-  if (!store.play?.id) return
-  emit('seek', value / 100)
+const changeProgress = (percent) => {
+  if (!store.play?.id)
+    return
+  emit('seek', percent)
 }
 
 const handleVolumeChange = (value) => {
   voice.value = value
   emit('volume', value)
 }
-
-// 时间格式化
-const timeDisplay = computed(() => {
-  const remaining = props.progress.total - props.progress.current
-  return {
-    current: new Date(props.progress.current * 1000).toISOString().substr(14, 5) || '00:00',
-    total: new Date(props.progress.total * 1000).toISOString().substr(14, 5) || '00:00',
-    remaining: new Date(remaining * 1000).toISOString().substr(14, 5) || '00:00',
-  }
-})
 
 // 循环模式文字
 const loopModeText = computed(() => {
@@ -213,28 +164,25 @@ const loopModeText = computed(() => {
 watch(() => props.show, async (newVal) => {
   if (newVal) {
     // 提取主题色
-    if (store.play?.cover) {
-      themeColor.value = await extractThemeColor(store.play.cover)
-    }
+    if (store.play?.cover)
+      await updateThemeFromCover(store.play.cover)
 
     // 启动可视化
-    setTimeout(() => {
-      drawVisualization()
-    }, 100)
+    resizeCanvas()
+    animationFrameId.value = requestAnimationFrame(drawVisualization)
   } else {
     // 停止动画
     if (animationFrameId.value) {
       cancelAnimationFrame(animationFrameId.value)
-      animationFrameId.value = null
+      animationFrameId.value = 0
     }
   }
 })
 
 // 监听歌曲变化
 watch(() => store.play?.id, async () => {
-  if (props.show && store.play?.cover) {
-    themeColor.value = await extractThemeColor(store.play.cover)
-  }
+  if (props.show && store.play?.cover)
+    await updateThemeFromCover(store.play.cover)
 })
 
 // 调整 canvas 尺寸
@@ -261,6 +209,10 @@ onBeforeUnmount(() => {
 const close = () => {
   emit('update:show', false)
   emit('close')
+  const isTiny = window?.innerWidth <= 360 || window?.innerHeight <= 520
+  if (isTiny && window?.ipcRenderer?.invoke) {
+    window.ipcRenderer.invoke('set-window-size', { width: 960, height: 640 })
+  }
 }
 
 const openBilibili = () => {
@@ -300,32 +252,33 @@ const openBilibili = () => {
       <!-- 内容区域 -->
       <div class="relative z-10 flex flex-col h-full backdrop-blur-[0px]">
         <!-- 顶部栏 -->
-        <div class="flex items-center justify-between px-6 pt-12 pb-4"> <!-- 增加顶部 padding 适配刘海屏感觉 -->
+        <div class="top-bar flex items-center justify-between px-6 pt-12 pb-4"> <!-- 增加顶部 padding 适配刘海屏感觉 -->
           <div
             class="w-12 h-1 bg-white/20 rounded-full mx-auto absolute top-4 left-0 right-0 cursor-pointer hover:bg-white/40 transition-colors md:hidden"
             @click="close"></div>
 
           <button @click="close"
-            class="flex items-center justify-center w-8 h-8 rounded-full bg-black/10 hover:bg-white/10 text-white/70 hover:text-white transition-all backdrop-blur-md">
+            class="fp-icon-btn">
             <div class="i-mingcute:down-line text-xl" />
           </button>
 
           <div class="text-white/50 text-xs font-semibold tracking-widest uppercase">正在播放</div>
 
           <button @click="openBilibili"
-            class="flex items-center justify-center w-8 h-8 rounded-full bg-black/10 hover:bg-white/10 text-white/70 hover:text-white transition-all backdrop-blur-md">
+            class="fp-icon-btn">
             <div class="i-mingcute:more-1-fill text-xl" />
           </button>
         </div>
 
         <!-- 主布局容器 -->
         <div
-          class="flex-1 flex flex-col md:flex-row items-center md:justify-center px-8 pb-12 gap-8 md:gap-24 overflow-y-auto custom-scrollbar">
+          class="fullscreen-layout flex-1 flex flex-col md:flex-row items-center md:justify-center gap-8 md:gap-24 overflow-y-auto custom-scrollbar relative">
 
           <!-- 左侧/上方：封面 -->
-          <div class="w-full max-w-[360px] md:max-w-[48vh] aspect-square flex-shrink-0 relative group mt-4 md:mt-0">
+          <div
+            class="cover-shell w-full max-w-[360px] md:max-w-[48vh] aspect-square flex-shrink-0 relative group mt-4 md:mt-0">
             <div
-              class="w-full h-full rounded-xl md:rounded-2xl overflow-hidden shadow-2xl relative transition-transform duration-500 ease-out"
+              class="cover-core w-full h-full rounded-xl md:rounded-2xl overflow-hidden shadow-2xl relative transition-transform duration-500 ease-out"
               :class="{ 'scale-90 opacity-80': !isPlaying, 'scale-100 opacity-100': isPlaying }"
               :style="{ boxShadow: `0 20px 50px -12px ${rgbToRgba(themeColor, 0.5)}` }">
               <img v-if="store.play?.cover" :src="store.play.cover" class="w-full h-full object-cover" />
@@ -334,10 +287,32 @@ const openBilibili = () => {
                 <div class="i-mingcute:music-2-fill text-8xl text-neutral-700" />
               </div>
             </div>
+
+            <!-- 超小屏控制补充 -->
+            <div class="tiny-controls">
+              <button @click="prevSong" class="tiny-btn" title="上一首">
+                <div class="i-mingcute:skip-previous-fill text-lg" />
+              </button>
+              <button @click="togglePlay" class="tiny-btn" title="播放/暂停">
+                <div v-if="props.isPlaying" class="i-mingcute:pause-fill text-lg" />
+                <div v-else class="i-mingcute:play-fill text-lg ml-0.5" />
+              </button>
+              <button @click="nextSong" class="tiny-btn" title="下一首">
+                <div class="i-mingcute:skip-forward-fill text-lg" />
+              </button>
+              <button @click="cycleLoopMode" class="tiny-btn" :title="loopModeText">
+                <div v-if="store.loopMode === 'list'" class="i-mingcute:repeat-line text-lg" />
+                <div v-else-if="store.loopMode === 'single'" class="i-mingcute:repeat-one-line text-lg" />
+                <div v-else class="i-mingcute:shuffle-line text-lg" />
+              </button>
+              <button @click="close" class="tiny-btn" title="关闭">
+                <div class="i-mingcute:down-line text-lg" />
+              </button>
+            </div>
           </div>
 
           <!-- 右侧/下方：信息与控制 -->
-          <div class="w-full max-w-[360px] md:max-w-[400px] flex flex-col justify-center flex-shrink-0">
+          <div class="info-shell w-full max-w-[360px] md:max-w-[400px] flex flex-col justify-center flex-shrink-0">
 
             <!-- 歌曲信息布局 (Apple Music 样式：左对齐标题，右侧更多按钮) -->
             <div class="flex items-start justify-between mb-2">
@@ -360,46 +335,44 @@ const openBilibili = () => {
             </div>
 
             <!-- 进度条区域 -->
-            <div class="w-full mb-8 group/slider">
-              <div class="relative h-6 flex items-center">
-                <Slider class="apple-slider w-full" :value="Math.round(props.progress.percent * 100)"
-                  @update:value="val => { isDragging = true }" @change="changeProgress" />
-              </div>
-              <div
-                class="flex justify-between text-[11px] font-medium text-white/30 group-hover/slider:text-white/50 transition-colors px-0.5 -mt-2">
-                <span>{{ timeDisplay.current }}</span>
-                <span>{{ timeDisplay.total }}</span>
-              </div>
+            <div class="progress-section w-full mb-8">
+              <ProgressBar
+                :percent="props.progress.percent"
+                :current="props.progress.current"
+                :total="props.progress.total"
+                @seek="changeProgress"
+              />
             </div>
 
             <!-- 播放控制 -->
-            <div class="flex items-center justify-between mb-8">
+            <div class="playback-controls flex items-center justify-center gap-6 mb-8">
               <!-- 循环模式 (放在左侧或者单独一排? AM放在底部，这里为了平衡放在两边) -->
               <!-- 上一首 -->
               <button @click="prevSong"
-                class="text-white/60 hover:text-white transition-all hover:scale-110 active:scale-95">
+                class="control-btn fp-control-btn">
                 <div class="i-mingcute:skip-previous-fill text-4xl" />
               </button>
 
               <!-- 播放/暂停 (中心大按钮) -->
               <button @click="togglePlay"
-                class="w-20 h-20 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/10 text-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 backdrop-blur-md shadow-lg border border-white/5">
+                class="play-btn fp-play-btn w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95">
                 <div v-if="props.isPlaying" class="i-mingcute:pause-fill text-4xl" />
                 <div v-else class="i-mingcute:play-fill text-4xl ml-1" />
               </button>
 
               <!-- 下一首 -->
               <button @click="nextSong"
-                class="text-white/60 hover:text-white transition-all hover:scale-110 active:scale-95">
+                class="control-btn fp-control-btn">
                 <div class="i-mingcute:skip-forward-fill text-4xl" />
               </button>
             </div>
 
+
             <!-- 底部辅助控制 (音量/模式) -->
-            <div class="flex items-center justify-between gap-6 px-2">
+            <div class="aux-controls flex items-center justify-between gap-6 px-2">
               <!-- 播放模式 -->
               <button @click="cycleLoopMode"
-                class="text-white/40 hover:text-white/80 transition-colors p-2 rounded-lg hover:bg-white/5"
+                class="fp-icon-btn fp-icon-btn--ghost"
                 :title="loopModeText">
                 <div class="relative">
                   <div v-if="store.loopMode === 'list'" class="i-mingcute:repeat-line text-xl" />
@@ -440,6 +413,34 @@ const openBilibili = () => {
 .custom-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.tiny-controls {
+  display: none;
+}
+
+.fp-icon-btn,
+.fp-control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+  border: none;
+  padding: 0;
+  transition: color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+}
+
+.fp-icon-btn:hover,
+.fp-control-btn:hover {
+  color: #fff;
+  opacity: 0.95;
+}
+
+.fp-play-btn {
+  background: #fff;
+  color: #000;
+  box-shadow: none;
 }
 
 /* 覆盖 Slider 样式以适配 Apple 风格 */
@@ -517,5 +518,213 @@ const openBilibili = () => {
 .fullscreen-player-leave-to {
   opacity: 0;
   transform: translateY(40px) scale(0.98);
+}
+
+/* Layout tuning for small windows */
+@media (max-width: 900px) {
+  .fullscreen-layout {
+    gap: 20px;
+  }
+
+  .cover-shell {
+    max-width: 320px;
+  }
+
+  .info-shell {
+    max-width: 380px;
+  }
+}
+
+@media (max-width: 640px) {
+  .fullscreen-layout {
+    gap: 16px;
+  }
+
+  .cover-shell {
+    max-width: 240px;
+  }
+
+  .info-shell {
+    max-width: 260px;
+  }
+
+  .play-btn {
+    width: 52px;
+    height: 52px;
+  }
+
+  .play-btn .i-mingcute:pause-fill,
+  .play-btn .i-mingcute:play-fill {
+    font-size: 22px;
+  }
+
+  .control-btn .i-mingcute:skip-previous-fill,
+  .control-btn .i-mingcute:skip-forward-fill {
+    font-size: 22px;
+  }
+
+  .aux-controls {
+    gap: 12px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+@media (max-width: 450px) {
+  .fullscreen-layout {
+    gap: 12px;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .cover-shell {
+    max-width: none;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    margin-top: 0;
+    position: fixed;
+    inset: 0;
+    border-radius: 0;
+  }
+
+  .info-shell {
+    display: none;
+  }
+
+  .play-btn {
+    width: 46px;
+    height: 46px;
+  }
+
+  .play-btn .i-mingcute:pause-fill,
+  .play-btn .i-mingcute:play-fill {
+    font-size: 20px;
+  }
+
+  .control-btn .i-mingcute:skip-previous-fill,
+  .control-btn .i-mingcute:skip-forward-fill {
+    font-size: 20px;
+  }
+
+  .aux-controls {
+    display: none;
+  }
+
+  .apple-slider {
+    min-width: 0;
+  }
+
+  .top-bar {
+    display: none;
+  }
+
+  .progress-section {
+    display: none;
+  }
+
+  .fullscreen-layout {
+    overflow: hidden;
+  }
+
+  .playback-controls {
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    margin-bottom: 0;
+    gap: 16px;
+    width: auto;
+  }
+
+  .progress-section {
+    display: none;
+  }
+
+  .top-bar {
+    display: none;
+  }
+
+  .playback-controls .control-btn {
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 999px;
+    padding: 6px;
+  }
+
+  .tiny-controls {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    gap: 10px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .tiny-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cover-shell:hover .tiny-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .cover-core {
+    border-radius: 0;
+    width: 100%;
+    height: 100%;
+    box-shadow: none;
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Layout tuning for large screens */
+@media (min-width: 1200px) {
+  .fullscreen-layout {
+    gap: 96px;
+  }
+
+  .cover-shell {
+    max-width: 52vh;
+  }
+
+  .info-shell {
+    max-width: 460px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .fullscreen-layout {
+    gap: 120px;
+  }
+
+  .cover-shell {
+    max-width: 58vh;
+  }
+
+  .info-shell {
+    max-width: 520px;
+  }
+
+  .cover-core::after {
+    content: "";
+    position: absolute;
+    inset: -12px;
+    border-radius: 24px;
+    background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18), transparent 55%);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+  }
 }
 </style>

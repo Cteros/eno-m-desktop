@@ -154,7 +154,7 @@ async function handleCreateTag() {
     </div>
 
     <!-- Singer 页面 Tab 栏 - 显示所有分组(排除默认分组) -->
-    <div v-if="currentRoute === 'singerList'" class="border-t border-[#333333] bg-[#1a1a1a]">
+    <div v-if="currentRoute === 'singerList'" class="border-t border-[#333333]">
       <!-- 分组标签行 -->
       <div class="px-6 py-3 flex items-center gap-2 overflow-x-auto">
         <!-- 分组标签(不显示"所有分组"和"默认分组") -->

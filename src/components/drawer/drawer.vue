@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import cn from 'classnames'
+import { useDialogController } from '@/composables/useDialogController'
 
 const props = defineProps<{
   open: boolean
@@ -14,19 +15,14 @@ const transitionName = computed(() => {
   return `drawer-${props.position}`
 })
 const isLR = computed(() => props.position === 'left' || props.position === 'right')
-watch(() => props.open, (open) => {
-  if (!drawerRef.value)
-    return
-  if (open)
-    drawerRef.value.showModal()
-  else
-    drawerRef.value.close()
+
+const { handleClose, handleCancel } = useDialogController({
+  dialogRef: drawerRef,
+  open: () => props.open,
+  onRequestClose: () => emit('visibleChange', false),
+  lockBodyScroll: true,
 })
-onMounted(() => {
-  drawerRef.value?.addEventListener('close', () => {
-    emit('visibleChange', false)
-  })
-})
+
 function close() {
   emit('visibleChange', false)
 }
@@ -44,13 +40,15 @@ function clickDialog(e: MouseEvent) {
   <Teleport to="body">
     <Transition :name="transitionName">
       <dialog
-        v-show="open" ref="drawerRef"
+        ref="drawerRef"
         :class="cn(`${props.class} text-white backdrop-blur grid grid-rows-[3rem_1fr] bg-transparent`, {
           'w-screen min-h-[10vh] max-h-[100vh]': !isLR,
           'h-[100vh+4rem] min-w-100 max-w-[100vw]': isLR,
           'translate-x-[-100%] ml-[100vw]': props.position === 'right',
         })"
         @click="clickDialog"
+        @close="handleClose"
+        @cancel="handleCancel"
       >
         <div class="flex justify-between h-full text-2xl px-3">
           <div>

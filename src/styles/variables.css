@@ -28,4 +28,16 @@
 
   --eno-filter-glass-light-1: blur(20px) saturate(180%) brightness(1.2);
   --eno-filter-glass-light-2: blur(40px) saturate(180%) brightness(1.2);
+
+  --eno-glow: #404040;
+  --eno-glow-soft: rgba(64, 64, 64, 0.2);
+  --eno-glow-strong: rgba(64, 64, 64, 0.45);
+
+  --eno-accent: #1db954;
+  --eno-accent-soft: rgba(29, 185, 84, 0.25);
+
+  --eno-dialog-bg: rgba(20, 20, 20, 0.9);
+  --eno-dialog-border: rgba(255, 255, 255, 0.1);
+  --eno-dialog-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --eno-dialog-radius: 16px;
 }

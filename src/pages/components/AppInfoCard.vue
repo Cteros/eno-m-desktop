@@ -27,10 +27,22 @@ const updateStatusColor = computed(() => {
 </script>
 
 <template>
-  <div class="border border-white/10 rounded-xl p-6 mb-6 hover:border-white/20 transition-colors duration-300">
-    <div class="flex items-center gap-3 mb-6">
-      <div class="i-mingcute:information-line text-2xl text-[#1db954]" />
-      <h2 class="text-lg font-bold text-white">关于应用</h2>
+  <div class="settings-card">
+    <div class="settings-card__header">
+      <div>
+        <div class="settings-card__title">
+          <div class="i-mingcute:information-line text-xl text-[#1db954]" />
+          <span>关于应用</span>
+        </div>
+        <div class="settings-card__subtitle">版本与更新信息</div>
+      </div>
+      <button
+        :class="updateStatusColor"
+        class="eno-btn eno-btn-ghost"
+        @click="updater?.showUpdateDialog()"
+      >
+        {{ updateStatusText }}
+      </button>
     </div>
 
     <!-- 版本信息 -->
@@ -40,10 +52,6 @@ const updateStatusColor = computed(() => {
           <span class="text-sm text-gray-400">当前版本</span>
           <span class="text-base font-mono text-white">{{ currentVersion || '...' }}</span>
         </div>
-        <button :class="updateStatusColor" class="text-sm font-medium transition-colors cursor-pointer"
-          @click="updater?.showUpdateDialog()">
-          {{ updateStatusText }}
-        </button>
       </div>
 
       <div v-if="updateAvailable" class="flex items-center justify-between">

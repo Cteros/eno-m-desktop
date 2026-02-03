@@ -88,8 +88,8 @@ async function createWindow() {
     icon: path.join(process.env.VITE_PUBLIC, 'download.png'),
     width: 1200,
     height: 800,
-    minWidth: 800,
-    minHeight: 600,
+    minWidth: 400,
+    minHeight: 400,
     titleBarStyle: 'hidden',
     trafficLightPosition: { x: 12, y: 12 },
     vibrancy: 'fullscreen-ui', // macOS 毛玻璃效果
@@ -130,6 +130,15 @@ app.whenReady().then(() => {
   createWindow()
   setupDownloadHandlers()
   setupUpdateHandlers()
+  ipcMain.handle('set-window-size', async (_event, size: { width: number; height: number }) => {
+    if (!win || win.isDestroyed())
+      return { success: false }
+    const width = Math.max(200, Math.floor(size?.width || 960))
+    const height = Math.max(400, Math.floor(size?.height || 640))
+    win.setSize(width, height, true)
+    win.center()
+    return { success: true }
+  })
   // Bilibili QR Login IPC
   ipcMain.handle('bili-qr-generate', async () => {
     try {

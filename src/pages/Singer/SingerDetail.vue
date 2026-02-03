@@ -13,16 +13,13 @@ import Message from '~/components/message'
 import Dialog from '~/components/dialog/index.vue'
 import { useDownloadStore } from '~/store/downloadStore'
 import { formatFileName } from '~/utils/filename'
-import { average } from 'color.js'
 import BulkDownloadDialog from '~/components/BulkDownloadDialog.vue'
-import { useUIStore } from '@/store/uiStore'
 import DynamicHeader from '~/components/DynamicHeader.vue'
 
 const route = useRoute()
 const pcStore = playCoreStore()
 const singerStore = useSingerStore()
 const store = useBlblStore()
-const uiStore = useUIStore()
 const collectionsStore = useCollectionsStore()
 
 const currentMid = computed(() => route.params.mid || '')
@@ -37,42 +34,58 @@ const isAddingToTag = ref(false)
 const selectedTagsForAdd = ref([])
 
 // 关注/取消关注状态
-const isFollowing = ref(false)
 const isFollowLoading = ref(false)
 
-// 检查用户是否已关注
-const checkIsFollowing = () => {
-  if (!currentMid.value) return false
-  const follower = pcStore.allFollowersCache.find(
+const optimisticFollow = ref(null)
+const isFollowing = computed(() => {
+  if (optimisticFollow.value !== null)
+    return optimisticFollow.value
+  if (!currentMid.value)
+    return false
+  return pcStore.allFollowersCache.some(
     f => f.mid === currentMid.value || f.mid.toString() === currentMid.value.toString()
   )
-  isFollowing.value = !!follower
-}
+})
 
 // 处理关注/取消关注
 const handleFollowToggle = async () => {
   if (!currentMid.value) return
 
   isFollowLoading.value = true
+  const nextFollowState = !isFollowing.value
+  optimisticFollow.value = nextFollowState
   try {
-    if (isFollowing.value) {
+    if (!nextFollowState) {
       // 取消关注
       await singerStore.unfollowUser(currentMid.value)
       Message.show({ type: 'success', message: '已取消关注' })
-      isFollowing.value = false
     } else {
       // 关注
       await singerStore.followUser(currentMid.value)
       Message.show({ type: 'success', message: '已关注' })
-      isFollowing.value = true
-      // 刷新关注列表
-      await pcStore.fetchAllFollowers()
     }
+    // 刷新关注列表
+    await pcStore.fetchAllFollowers()
   } catch (error) {
     console.error(error)
-    Message.show({ type: 'error', message: error.message || '操作失败' })
+    const message = error?.message || '操作失败'
+    if (message.includes('已经关注')) {
+      optimisticFollow.value = true
+      await pcStore.fetchAllFollowers()
+      return
+    }
+    Message.show({ type: 'error', message })
+    const button = document.querySelector('.singer-follow-btn')
+    const el = button instanceof HTMLElement ? button : null
+    if (el) {
+      el.classList.remove('follow-shake')
+      // 触发重绘以重启动画
+      void el.offsetWidth
+      el.classList.add('follow-shake')
+    }
   } finally {
     isFollowLoading.value = false
+    optimisticFollow.value = null
   }
 }
 
@@ -108,7 +121,6 @@ const loadSingerInfo = async (mid) => {
 // 监听路由 mid 参数变化
 watch(() => currentMid.value, (newMid) => {
   loadSingerInfo(newMid)
-  checkIsFollowing()
 }, { immediate: true })
 
 // 初始化时确保关注列表有数据
@@ -119,32 +131,6 @@ onMounted(async () => {
   }
 })
 
-const headerColor = ref('#535353') // 默认颜色
-watch(() => headerColor.value, (newColor) => {
-  uiStore.setGlowColor(newColor)
-})
-
-// 提取主题色
-watch(info, async (newInfo) => {
-  if (newInfo?.face) {
-    try {
-      // 使用 crossOrigin 防止跨域问题 (虽然B站图片有防盗链，但electron环境可能好些，或者需要代理)
-      // 这里我们直接传 url，color.js 会尝试加载
-      const color = await average(newInfo.face, { amount: 1, format: 'hex' })
-      // color.js 返回的是 hex 字符串，或者是数组
-      if (typeof color === 'string') {
-        headerColor.value = color
-      } else if (Array.isArray(color)) {
-        // 如果是 rgb 数组
-        // headerColor.value = `rgb(${color[0]}, ${color[1]}, ${color[2]})`
-      }
-
-    } catch (e) {
-      console.warn('Failed to extract color:', e)
-      headerColor.value = '#535353'
-    }
-  }
-}, { immediate: true })
 
 const songListByPage = ref({})
 const renderList = computed(() => {
@@ -161,6 +147,7 @@ const page = ref({
 const contentRef = ref(null)
 const { y: scrollY } = useScroll(contentRef)
 const isScrolled = computed(() => scrollY.value > 100)
+const headerColor = computed(() => 'var(--eno-accent)')
 
 // bulk download state
 const downloadStore = useDownloadStore()
@@ -583,12 +570,14 @@ function stopBulkDownload() {
           <div class="i-mingcute:download-2-fill text-md" />
         </div>
         <!-- 关注按钮 -->
-        <button :disabled="isFollowLoading" @click="handleFollowToggle" :class="[
-          'px-4 py-2 rounded-full font-bold text-sm transition-colors duration-300 flex items-center gap-2',
-          isFollowing
-            ? 'bg-[#1db954] hover:bg-[#1ed760] text-black'
-            : 'border border-white text-white hover:border-[#1db954] hover:text-[#1db954]'
-        ]">
+        <button
+          :disabled="isFollowLoading"
+          @click="handleFollowToggle"
+          :class="[
+            'eno-btn singer-follow-btn',
+            isFollowing ? 'eno-btn-primary' : 'eno-btn-ghost'
+          ]"
+        >
           <div
             :class="isFollowLoading ? 'animate-spin i-mingcute:loading-3-line' : (isFollowing ? 'i-mingcute:check-line' : 'i-mingcute:add-line')" />
           <span>{{ isFollowLoading ? '处理中...' : (isFollowing ? '已关注' : '关注') }}</span>
@@ -678,6 +667,40 @@ function stopBulkDownload() {
     </div>
   </section>
 </template>
+
+<style scoped>
+.singer-follow-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.follow-shake {
+  animation: follow-shake 0.32s ease;
+}
+
+@keyframes follow-shake {
+  0% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+</style>
 
 <style scoped>
 /* 自定义 SongItem 样式覆盖 */

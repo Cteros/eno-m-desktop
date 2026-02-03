@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, inject } from 'vue'
+import { onMounted, onBeforeUnmount, inject } from 'vue'
 // 第三方库
 import { useLocalStorage } from '@vueuse/core'
 import { Howl } from 'howler'
@@ -10,9 +10,7 @@ import { VIDEO_MODE, useBlblStore } from '../../blbl/store'
 import { usePlaylistStore } from '../../playlist/store.ts'
 import { useDownloadStore } from '../../store/downloadStore'
 import { formatFileName } from '~/utils/filename'
-import { LoopSwitch } from '../common'
-import { Slider } from '../common'
-import { PlayControlBar } from '../common'
+import { LoopSwitch, ProgressBar, Slider, PlayControlBar } from '../common'
 import FullscreenPlayer from '../FullscreenPlayer/index.vue'
 
 // hooks & utils
@@ -56,8 +54,8 @@ const progress = reactive({
 })
 const voice = useLocalStorage('voice', 100)
 const isCloseVoice = ref(false)
-const progressTimer = ref(null)
 const isDragging = ref(false)
+const progressRafId = ref(0)
 
 useControl({
   play: () => playControl(),
@@ -68,6 +66,10 @@ useControl({
 function changeSeek(number) {
   if (!store.play?.id)
     return
+  if (!store.howl)
+    return
+  if (!progress.total)
+    return
   store.howl.pause()
 
   progress.current = (progress.current + number + progress.total) % progress.total
@@ -76,13 +78,29 @@ function changeSeek(number) {
   store.howl.play()
 }
 
+function stopProgressLoop() {
+  if (progressRafId.value) {
+    cancelAnimationFrame(progressRafId.value)
+    progressRafId.value = 0
+  }
+}
+
 function updateProgess() {
+  if (!store.howl)
+    return
   if (!isDragging.value) {
     progress.current = store.howl.seek()
-    progress.percent = progress.current / progress.total
+    progress.percent = progress.total ? progress.current / progress.total : 0
   }
   if (store.howl.playing())
-    requestAnimationFrame(updateProgess)
+    progressRafId.value = requestAnimationFrame(updateProgess)
+  else
+    stopProgressLoop()
+}
+
+function startProgressLoop() {
+  stopProgressLoop()
+  progressRafId.value = requestAnimationFrame(updateProgess)
 }
 
 function initMusic() {
@@ -95,6 +113,7 @@ function initMusic() {
     store.howl.stop()
     store.howl.unload()
   }
+  stopProgressLoop()
 
   // 判断当前歌曲是否在播放列表中，如果不在就插入，用于点击歌曲播放时防止 history 无法记录
   const index = store.playList.findIndex(({ id }) => id === store.play.id)
@@ -154,13 +173,14 @@ function initMusic() {
       }
       isPlaying.value = true
       progress.total = store.howl.duration()
-      requestAnimationFrame(updateProgess)
+      startProgressLoop()
     },
     onpause: () => {
       isPlaying.value = false
-      clearInterval(progressTimer.value)
+      stopProgressLoop()
     },
     onend: () => {
+      stopProgressLoop()
       if (store.loopMode === 'single')
         initMusic()
       else change('next')
@@ -237,6 +257,12 @@ async function getSidUrl(item) {
 }
 
 async function getPlayUrl(currentSong) {
+  if (!currentSong)
+    return
+  if (currentSong.url) {
+    store.play = currentSong
+    return
+  }
   const play = currentSong.eno_song_type === 'bvid'
     ? await getBvidUrl(currentSong)
     : currentSong.eno_song_type === 'cid'
@@ -248,6 +274,8 @@ async function getPlayUrl(currentSong) {
 // 监听歌曲切换
 watch(() => store.play?.id, async () => {
   const currentSong = store.play
+  if (!currentSong)
+    return
   await getPlayUrl(currentSong)
   initMusic()
 })
@@ -278,23 +306,27 @@ function change(type) {
   historyList.value.push(index)
   store.play = playList[index]
 }
-function changeProgress(e) {
-  // 如果当前没有歌曲,就返回
+function handleSeekPercent(percent) {
   if (!store.play?.id)
     return
-  // 如果是 input 事件（拖动中），只更新 isDragging，不seek
-  if (e.type === 'input') {
-    isDragging.value = true
+  if (!store.howl)
     return
-  }
-
-  store.howl.seek(progress.total * e.target.value)
+  if (!progress.total)
+    return
+  store.howl.seek(progress.total * percent)
   isDragging.value = false
+}
+
+function handleDragging(val) {
+  isDragging.value = val
 }
 
 // 处理全屏播放器的seek事件
 function handleFullscreenSeek(percent) {
-  if (!store.play?.id) return
+  if (!store.play?.id)
+    return
+  if (!progress.total)
+    return
   store.howl.seek(progress.total * percent)
 }
 
@@ -327,12 +359,6 @@ async function playControl() {
   else
     store.howl.play()
 }
-const timeDisplay = computed(() => {
-  return {
-    current: new Date(progress.current * 1000).toISOString().substr(14, 5) || '00:00',
-    total: new Date(progress.total * 1000).toISOString().substr(14, 5) || '00:00',
-  }
-})
 const progressTrans = computed(() => {
   return {
     transform: `translateX(${(1 - progress.percent) * -100}%)`,
@@ -347,6 +373,8 @@ function handleChangeVoice(val) {
 }
 // 设置打开声音和静音
 function setVoice() {
+  if (!store.howl)
+    return
   if (isCloseVoice.value) {
     store.howl.volume(voice.value)
     isCloseVoice.value = false
@@ -370,6 +398,14 @@ function fullScreenTheBody() {
 
   fullScreenStatus.value = document.fullscreenElement
 }
+
+onBeforeUnmount(() => {
+  stopProgressLoop()
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('previoustrack', null)
+    navigator.mediaSession.setActionHandler('nexttrack', null)
+  }
+})
 function openBlTab() {
   showFullscreenPlayer.value = true
 }
@@ -459,8 +495,8 @@ async function downloadSong() {
         </div>
 
         <div class="flex flex-col overflow-hidden">
-          <div class="text-white text-sm truncate hover:underline cursor-pointer" v-html="displayData.title" />
-          <div class="text-xs truncate hover:text-white cursor-pointer hover:underline">
+          <div class="text-white text-sm truncate cursor-pointer" v-html="displayData.title" />
+          <div class="text-xs truncate hover:text-white cursor-pointer">
             {{ store.play.author }}
           </div>
         </div>
@@ -483,13 +519,13 @@ async function downloadSong() {
           </template>
         </PlayControlBar>
 
-        <div class="flex items-center w-full gap-2 text-xs font-mono">
-          <span class="min-w-[40px] text-right">{{ timeDisplay.current }}</span>
-          <Slider class="flex-1 h-1" :value="Math.round(progress.percent * 100)"
-            @update:value="val => { progress.percent = val / 100; isDragging = true }"
-            @change="val => { changeProgress({ type: 'change', target: { value: val / 100 } }) }" />
-          <span class="min-w-[40px]">{{ timeDisplay.total }}</span>
-        </div>
+        <ProgressBar
+          :percent="progress.percent"
+          :current="progress.current"
+          :total="progress.total"
+          @seek="handleSeekPercent"
+          @dragging="handleDragging"
+        />
       </div>
 
       <!-- 右侧功能区 -->

@@ -1,4 +1,7 @@
 <script setup>
+import { ref } from 'vue'
+import { useDialogController } from '@/composables/useDialogController'
+
 const props = defineProps({
   open: Boolean,
   title: String,
@@ -6,21 +9,20 @@ const props = defineProps({
 const emit = defineEmits(['visibleChange'])
 const drawerRef = ref(null)
 
-watch(() => props.open, (open) => {
-  if (open)
-    drawerRef.value.showModal()
-  else
-    drawerRef.value.close()
+const { handleClose, handleCancel } = useDialogController({
+  dialogRef: drawerRef,
+  open: () => props.open,
+  onRequestClose: () => emit('visibleChange', false),
+  lockBodyScroll: true,
 })
-onMounted(() => {
-  drawerRef.value.addEventListener('close', () => {
-    emit('visibleChange', false)
-  })
-})
+
 function close() {
   emit('visibleChange', false)
 }
+
 function clickDialog(e) {
+  if (!drawerRef.value)
+    return
   const { clientX, clientY } = e
   const { left, top, right, bottom } = drawerRef.value.getBoundingClientRect()
   if (clientX < left || clientX > right || clientY < top || clientY > bottom)
@@ -32,10 +34,12 @@ function clickDialog(e) {
   <Teleport to="body">
     <Transition name="slide-up">
       <dialog
-        v-show="open" ref="drawerRef"
+        ref="drawerRef"
         class="bg-$eno-filter-glass-2 backdrop-blur h-screen w-screen
-        text-white m-0 max-w-[100vw] max-h-[100vh] p-6
-      " @click="clickDialog"
+        text-white m-0 max-w-[100vw] max-h-[100vh] p-6"
+        @click="clickDialog"
+        @close="handleClose"
+        @cancel="handleCancel"
       >
         <div text-3xl mb-2 class="flex justify-between">
           <div>

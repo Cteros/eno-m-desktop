@@ -121,10 +121,14 @@ watch(() => props.modelValue, (val) => {
 </script>
 
 <template>
-  <Dialog :open="modelValue" :title="userInfo?.isLogin ? '账号信息' : '扫码登录'" class="w-[360px]"
+  <Dialog
+    :open="modelValue"
+    :title="userInfo?.isLogin ? '账号信息' : '扫码登录'"
+    class="w-[360px]"
+    bodyClass="pt-2"
     @visibleChange="(val: any) => !val && close()">
     <!-- 内容区 -->
-    <div class="py-2">
+    <div>
       <!-- 已登录状态 -->
       <div v-if="userInfo?.isLogin" class="flex flex-col items-center">
         <img :src="userInfo.face" class="w-20 h-20 rounded-full border-2 border-[#333] mb-4" />
@@ -139,9 +143,7 @@ watch(() => props.modelValue, (val) => {
             <span>硬币</span>
           </div>
         </div>
-        <button
-          class="w-full py-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 font-medium transition-colors"
-          @click="logoutBili">
+        <button class="w-full eno-btn eno-btn-danger py-2.5" @click="logoutBili">
           退出登录
         </button>
       </div>

@@ -37,28 +37,29 @@ const nameFormatPlaceholder = computed(() => {
 </script>
 
 <template>
-  <div class="border border-white/10 rounded-xl p-6 mb-6 hover:border-white/20 transition-colors duration-300">
-    <div class="flex items-center gap-3 mb-6">
-      <div class="i-mingcute:download-2-fill text-2xl text-[#ff6b6b]" />
-      <h2 class="text-lg font-bold text-white">下载设置</h2>
+  <div class="settings-card">
+    <div class="settings-card__header">
+      <div>
+        <div class="settings-card__title">
+          <div class="i-mingcute:download-2-fill text-xl text-[#ff6b6b]" />
+          <span>下载设置</span>
+        </div>
+        <div class="settings-card__subtitle">路径与命名规则</div>
+      </div>
     </div>
 
     <!-- 下载路径 -->
     <div class="mb-8">
       <p class="text-sm text-gray-400 mb-3">下载位置</p>
-      <div class="flex gap-2 mb-4">
+      <div class="flex gap-2 mb-4 flex-wrap">
         <div class="flex-1">
           <input type="text" :value="downloadPath" readonly
             class="w-full px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-sm font-mono focus:outline-none" />
         </div>
-        <button
-          class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-sm font-medium transition-colors"
-          @click="$emit('selectFolder')">
+        <button class="eno-btn eno-btn-ghost" @click="$emit('selectFolder')">
           选择位置
         </button>
-        <button
-          class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-sm font-medium transition-colors"
-          @click="$emit('openDownloadFolder')">
+        <button class="eno-btn eno-btn-ghost" @click="$emit('openDownloadFolder')">
           打开文件夹
         </button>
       </div>
@@ -73,7 +74,7 @@ const nameFormatPlaceholder = computed(() => {
       <input type="text" :value="downloadNameFormat" :placeholder="nameFormatPlaceholder"
         class="w-full px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-[#667eea] transition-colors"
         @input="$emit('update:downloadNameFormat', ($event.target as HTMLInputElement).value)" />
-      <p class="text-xs text-gray-500 mt-2">支持的占位符: {singer} {song} {album} {aid}</p>
+      <p class="text-xs text-gray-500 mt-2">支持: {singer} {song} {album} {aid}</p>
     </div>
 
     <!-- 高级选项 -->
@@ -95,7 +96,7 @@ const nameFormatPlaceholder = computed(() => {
         <input type="text" :value="downloadImageFormat" placeholder="cover.jpg"
           class="w-full px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-[#667eea] transition-colors"
           @input="$emit('update:downloadImageFormat', ($event.target as HTMLInputElement).value)" />
-        <p class="text-xs text-gray-500 mt-2">默认格式: cover.jpg, cover.png, cover.webp</p>
+        <p class="text-xs text-gray-500 mt-2">默认: cover.jpg / cover.png / cover.webp</p>
       </div>
 
       <!-- 字幕格式 -->
@@ -107,7 +108,7 @@ const nameFormatPlaceholder = computed(() => {
         <input type="text" :value="downloadSubFormat" placeholder="{index}. {singer} - {song}.lrc"
           class="w-full px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-[#667eea] transition-colors"
           @input="$emit('update:downloadSubFormat', ($event.target as HTMLInputElement).value)" />
-        <p class="text-xs text-gray-500 mt-2">支持占位符: {index} {singer} {song} {album} {aid}</p>
+        <p class="text-xs text-gray-500 mt-2">支持: {index} {singer} {song} {album} {aid}</p>
       </div>
     </div>
 
@@ -117,12 +118,9 @@ const nameFormatPlaceholder = computed(() => {
         <div class="i-mingcute:information-line text-[#ff6b6b] text-lg flex-shrink-0 mt-0.5" />
         <div class="text-sm">
           <p class="font-medium text-white mb-2">下载说明</p>
-          <ul class="space-y-1 text-gray-400 text-xs">
-            <li>• 选择文件夹后，所有下载的音乐将保存到该位置</li>
-            <li>• 可自定义文件命名格式以便更好地组织音乐库</li>
-            <li>• 高级选项中可配置封面和字幕的存储格式</li>
-            <li>• 修改配置后立即生效</li>
-          </ul>
+          <div class="text-gray-400 text-xs leading-relaxed">
+            选择文件夹后，下载内容将保存到该位置。命名规则与高级选项修改后立即生效。
+          </div>
         </div>
       </div>
     </div>

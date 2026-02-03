@@ -1,30 +1,25 @@
 <script setup>
 import cn from 'classnames'
-import { ref, watch, onMounted } from 'vue'
+import { ref } from 'vue'
+import { useDialogController } from '@/composables/useDialogController'
 
 const props = defineProps({
   open: Boolean,
   title: String,
   class: String,
+  headerClass: String,
+  bodyClass: String,
+  footerClass: String,
+  titleClass: String,
 })
 const emit = defineEmits(['visibleChange'])
 const dialogRef = ref(null)
 
-watch(() => props.open, (open) => {
-  if (open) {
-    dialogRef.value?.showModal()
-    document.body.style.overflow = 'hidden' // 防止背景滚动
-  } else {
-    dialogRef.value?.close()
-    document.body.style.overflow = ''
-  }
-})
-
-onMounted(() => {
-  dialogRef.value?.addEventListener('close', () => {
-    emit('visibleChange', false)
-    document.body.style.overflow = ''
-  })
+const { handleClose, handleCancel } = useDialogController({
+  dialogRef,
+  open: () => props.open,
+  onRequestClose: () => emit('visibleChange', false),
+  lockBodyScroll: true,
 })
 
 function close() {
@@ -47,13 +42,22 @@ function clickDialog(e) {
 
 <template>
   <Teleport to="body">
-    <dialog ref="dialogRef" :class="cn(
-      'backdrop:bg-black/60 backdrop:backdrop-blur-sm bg-[#282828] text-white rounded-xl p-0 shadow-2xl w-[480px] max-w-[90vw] border border-white/10 focus:outline-none',
-      props.class
-    )" @click="clickDialog">
+    <dialog
+      ref="dialogRef"
+      :class="cn(
+        'backdrop:bg-black/60 backdrop:backdrop-blur-sm p-0 focus:outline-none w-[480px] max-w-[90vw] eno-dialog',
+        props.class
+      )"
+      @click="clickDialog"
+      @close="handleClose"
+      @cancel="handleCancel"
+    >
       <!-- 标题栏 -->
-      <div class="flex items-center justify-between p-6 pb-4">
-        <h3 class="text-xl font-bold leading-6 text-white">
+      <div v-if="$slots.header" :class="cn('eno-dialog__header', props.headerClass)">
+        <slot name="header" />
+      </div>
+      <div v-else class="eno-dialog__header" :class="props.headerClass">
+        <h3 class="eno-dialog__title" :class="props.titleClass">
           {{ props.title }}
         </h3>
         <button class="rounded-full p-1 hover:bg-white/10 transition-colors cursor-pointer" @click.stop="close">
@@ -62,12 +66,12 @@ function clickDialog(e) {
       </div>
 
       <!-- 内容区域 -->
-      <div :class="cn('px-6 overflow-y-auto custom-scrollbar', $slots.footer ? 'pb-4' : 'pb-6')">
+      <div :class="cn('eno-dialog__body overflow-y-auto custom-scrollbar', props.bodyClass)">
         <slot />
       </div>
 
       <!-- 底部区域 -->
-      <div v-if="$slots.footer" class="px-6 pb-6 pt-2 flex justify-end gap-3">
+      <div v-if="$slots.footer" :class="cn('eno-dialog__footer', props.footerClass)">
         <slot name="footer" />
       </div>
     </dialog>

@@ -70,29 +70,18 @@ function handleSingerDetail(singerMid) {
 </script>
 
 <template>
-  <!-- Card Style (Spotify 风格卡片) -->
+  <!-- Card Style (轻质感卡片) -->
   <div v-if="type === 'card'" :class="cn(
-    'flex flex-col items-center p-4 rounded-md bg-[#181818] hover:bg-[#282828] transition-all duration-300 cursor-pointer group w-40 flex-shrink-0 animate-slide-in-up hover:scale-105',
+    'eno-singer-card group cursor-pointer w-44 flex-shrink-0 animate-slide-in-up',
     props.class
   )" @click.stop="handleSingerDetail(singerMid)">
     <template>
-      <div class="relative w-full aspect-square mb-4 shadow-lg rounded-md overflow-hidden">
-        <img :src="avatar" alt="singerAvatar"
-          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out">
-        <!-- 播放按钮悬浮 (可选，如果你想直接播放歌手热门歌曲) -->
-        <div
-          class="absolute bottom-2 right-2 w-12 h-12 bg-[#1db954] rounded-full flex items-center justify-center shadow-lg opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:scale-105 hover:bg-[#1ed760]">
-          <div class="i-mingcute:play-fill text-black text-2xl pl-1" />
-        </div>
+      <div class="eno-singer-card__media">
+        <img :src="avatar" alt="singerAvatar" class="eno-singer-card__img">
       </div>
-
-      <div class="flex flex-col w-full">
-        <div class="text-sm font-bold text-white truncate mb-1">
-          {{ name }}
-        </div>
-        <div class="text-xs text-[#a7a7a7] truncate">
-          {{ desc }}
-        </div>
+      <div class="eno-singer-card__content">
+        <div class="eno-singer-card__name">{{ name }}</div>
+        <div class="eno-singer-card__desc">{{ desc }}</div>
       </div>
     </template>
   </div>
@@ -118,51 +107,22 @@ function handleSingerDetail(singerMid) {
     </template>
   </div>
 
-  <!-- Modern Card Style (现代高级卡片，匹配媒体库) -->
+  <!-- Modern Card Style (轻质感卡片) -->
   <div v-else-if="type === 'card-modern'" :class="cn(
-    'relative h-56 w-full flex flex-col items-center justify-between p-5 rounded-xl bg-gradient-to-b from-[#282828] to-[#1a1a1a] hover:bg-gradient-to-b hover:from-[#333333] hover:to-[#1f1f1f] transition-all duration-300 cursor-pointer group shadow-lg hover:shadow-2xl overflow-hidden hover:scale-103',
+    'eno-singer-card-modern group cursor-pointer',
     props.class
   )" @click.stop="handleSingerDetail(singerMid)">
     <template v-if="info">
-      <!-- 背景光晕效果 -->
-      <div
-        class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40 group-hover:to-black/20 transition-all duration-300 rounded-xl pointer-events-none" />
-
-      <!-- 装饰背景 -->
-      <div
-        class="absolute -top-1/4 -right-1/4 w-32 h-32 bg-[#1db954] rounded-full blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500 z-0" />
-
-      <!-- 卡片内容 -->
-      <div class="relative flex flex-col items-center justify-between w-full h-full">
-        <!-- 头像 -->
-        <div class="relative w-24 h-24 shadow-lg rounded-full overflow-hidden flex-shrink-0 flex-grow-0">
-          <img :src="avatar" alt="singerAvatar"
-            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out">
-          <!-- 播放按钮 -->
-          <div
-            class="absolute inset-0 w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 transition-opacity duration-300 rounded-full">
-            <div class="i-mingcute:play-fill text-white text-2xl pl-1" />
-          </div>
+      <div class="eno-singer-card-modern__content">
+        <div class="eno-singer-card-modern__avatar">
+          <img :src="avatar" alt="singerAvatar" class="eno-singer-card-modern__img">
         </div>
-
-        <!-- 信息 -->
-        <div class="flex flex-col items-center w-full flex-1 justify-center">
-          <h4
-            class="text-white font-bold text-sm line-clamp-1 group-hover:text-[#1db954] transition-colors duration-300 mt-2">
-            {{ name }}
-          </h4>
-          <p class="text-gray-400 text-xs mt-1 line-clamp-1">
-            {{ desc }}
-          </p>
-        </div>
+        <div class="eno-singer-card-modern__name">{{ name }}</div>
+        <div class="eno-singer-card-modern__desc">{{ desc }}</div>
       </div>
-
-      <!-- 边框光晕效果 -->
-      <div
-        class="absolute inset-0 rounded-xl border border-[#1db954] opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none" />
     </template>
     <template v-else>
-      <div class="w-24 h-24 rounded-full bg-white/5 animate-pulse mb-4" />
+      <div class="eno-singer-card-modern__skeleton" />
       <div class="flex flex-col items-center gap-2 w-full">
         <div class="h-4 w-24 bg-white/5 rounded animate-pulse" />
         <div class="h-3 w-16 bg-white/5 rounded animate-pulse" />
@@ -237,5 +197,149 @@ function handleSingerDetail(singerMid) {
 
 .animate-slide-in-left {
   animation: slideInLeft 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.eno-singer-card {
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(24, 24, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.eno-singer-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+}
+
+.eno-singer-card__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.eno-singer-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+.eno-singer-card:hover .eno-singer-card__img {
+  transform: scale(1.06);
+}
+
+.eno-singer-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 10px;
+}
+
+.eno-singer-card__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eno-singer-card__desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eno-singer-card-modern {
+  position: relative;
+  height: 220px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(24, 24, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.eno-singer-card-modern:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+}
+
+.eno-singer-card-modern__content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.eno-singer-card-modern__avatar {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
+}
+
+.eno-singer-card-modern__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.eno-singer-card-modern:hover .eno-singer-card-modern__img {
+  transform: scale(1.08);
+}
+
+.eno-singer-card-modern__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.eno-singer-card-modern__desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.eno-singer-card-modern__skeleton {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  animation: pulse 1.4s ease-in-out infinite;
+  margin: 10px auto 14px;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 </style>

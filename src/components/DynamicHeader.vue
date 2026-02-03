@@ -46,7 +46,7 @@ const emit = defineEmits(['play', 'search', 'open-external'])
       ? 'right-4 top-1/2 -translate-y-1/2 scale-75'
       : 'right-8 top-24 scale-100'">
       <button
-        class="w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-transform"
+        class="w-14 h-14 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-transform eno-play-btn"
         :style="{ backgroundColor: color }" @click="emit('play')" title="播放全部">
         <div class="i-mingcute:play-fill text-3xl text-black ml-1" />
       </button>
@@ -70,5 +70,11 @@ const emit = defineEmits(['play', 'search', 'open-external'])
 .need-ease {
   transition: all 0.5s;
   transition-timing-function: cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.eno-play-btn {
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
 }
 </style>

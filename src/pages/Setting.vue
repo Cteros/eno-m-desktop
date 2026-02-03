@@ -143,16 +143,12 @@ async function openDownloadFolder() {
 
 // 组件挂载时初始化
 onMounted(() => {
-  if (downloadStore.config.ffmpegInstalled) {
-    ffmpegInfo.value = {
-      found: true,
-      version: downloadStore.config.ffmpegVersion,
-      path: downloadStore.config.ffmpegPath
-    }
-    ffmpegAvailable.value = true
-  } else {
-    checkFFmpeg()
+  ffmpegInfo.value = {
+    found: downloadStore.config.ffmpegInstalled,
+    version: downloadStore.config.ffmpegVersion,
+    path: downloadStore.config.ffmpegPath
   }
+  ffmpegAvailable.value = downloadStore.config.ffmpegInstalled ? true : null
   refreshBiliUser()
 })
 
@@ -168,34 +164,84 @@ function handleBiliLogout() {
 </script>
 
 <template>
-  <div class="relative px-8 py-6">
-    <!-- 内容区域 -->
-    <div class="relative z-10 max-w-5xl mx-auto">
-      <!-- 页面标题 -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-white mb-2">设置</h1>
-        <p class="text-sm text-gray-400">自定义你的下载和应用配置</p>
+  <div class="relative px-8 py-6 settings-page">
+    <div class="relative z-10 max-w-6xl mx-auto">
+      <div class="settings-hero">
+        <div>
+          <h1 class="text-3xl font-bold text-white mb-2">设置</h1>
+          <p class="text-sm text-gray-400">更快地完成下载配置与系统工具检查</p>
+        </div>
+        <div class="settings-hero__meta">
+          <span class="text-xs text-gray-500">偏好设置已自动保存</span>
+        </div>
       </div>
 
-      <!-- B站扫码登录卡片 - 优先显示 -->
+      <!-- B站扫码登录卡片 -->
       <!-- <BiliLoginCard :user="user" @login="handleBiliLogin" @logout="handleBiliLogout" /> -->
 
-      <div class="grid grid-cols-1 gap-6">
-        <!-- 关于应用卡片 -->
-        <AppInfoCard />
-
-        <!-- FFmpeg 工具卡片 -->
-        <FFmpegCard :ffmpeg-info="ffmpegInfo" :ffmpeg-loading="ffmpegChecking" :ffmpeg-error="ffmpegError"
-          :downloading-ffmpeg="downloadingFFmpeg" :download-progress="ffmpegDownloadProgress" @checkFFmpeg="checkFFmpeg"
-          @downloadFFmpeg="downloadFFmpeg" />
-
-        <!-- 下载设置卡片 -->
-        <DownloadSettingsCard :download-path="downloadStore.config.downloadPath || '未设置（使用默认目录）'"
-          v-model:download-name-format="downloadStore.config.fileNameFormat"
-          v-model:download-image-format="downloadStore.config.imageNameFormat"
-          v-model:download-sub-format="downloadStore.config.lyricNameFormat" @selectFolder="selectDownloadPath"
-          @openDownloadFolder="openDownloadFolder" />
+      <div class="settings-grid">
+        <div class="settings-col">
+          <DownloadSettingsCard
+            :download-path="downloadStore.config.downloadPath || '未设置（使用默认目录）'"
+            v-model:download-name-format="downloadStore.config.fileNameFormat"
+            v-model:download-image-format="downloadStore.config.imageNameFormat"
+            v-model:download-sub-format="downloadStore.config.lyricNameFormat"
+            @selectFolder="selectDownloadPath"
+            @openDownloadFolder="openDownloadFolder"
+          />
+        </div>
+        <div class="settings-col">
+          <FFmpegCard
+            :ffmpeg-info="ffmpegInfo"
+            :ffmpeg-loading="ffmpegChecking"
+            :ffmpeg-error="ffmpegError"
+            :downloading-ffmpeg="downloadingFFmpeg"
+            :download-progress="ffmpegDownloadProgress"
+            @checkFFmpeg="checkFFmpeg"
+            @downloadFFmpeg="downloadFFmpeg"
+          />
+          <AppInfoCard />
+        </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.settings-page {
+  min-height: 100%;
+}
+
+.settings-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+.settings-hero__meta {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+.settings-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
