@@ -78,7 +78,7 @@ function handleStop() {
     :open="show"
     class="w-[720px] max-w-[95%]"
     bodyClass="pt-3"
-    @visibleChange="(val: any) => !val && emit('close')"
+    @visibleChange="val => !val && emit('close')"
   >
     <template #header>
       <div class="flex items-center justify-between w-full">
