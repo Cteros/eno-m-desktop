@@ -130,13 +130,37 @@ defineExpose({
   latestVersion
 })
 
+function withTimeout(promise, ms, fallbackMessage) {
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(fallbackMessage)), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
+function normalizeUpdateError(err) {
+  const message = err?.message || String(err || '')
+  if (message.includes('timeout') || message.includes('超时'))
+    return '请求超时，请检查网络后重试'
+  if (message.includes('network') || message.includes('网络'))
+    return '网络异常，请稍后重试'
+  return message || '更新检查失败'
+}
+
 // 检查更新
 async function checkUpdates() {
   checking.value = true
   checkError.value = ''
 
   try {
-    const result = await (window as any).ipcRenderer?.invoke('check-for-updates')
+    const invoke = (window as any).ipcRenderer?.invoke
+    if (!invoke)
+      throw new Error('IPC 不可用')
+    const result = await withTimeout(
+      invoke('check-for-updates'),
+      15000,
+      '检查更新超时'
+    )
 
     if (result?.success) {
       currentVersion.value = result.currentVersion
@@ -155,7 +179,7 @@ async function checkUpdates() {
       checkError.value = result?.error || '检查更新失败'
     }
   } catch (error: any) {
-    checkError.value = error.message || '检查更新出错'
+    checkError.value = normalizeUpdateError(error)
   } finally {
     checking.value = false
   }
@@ -192,7 +216,14 @@ async function downloadUpdate() {
     (window as any).ipcRenderer?.on('update-downloaded', onUpdateDownloaded);
     (window as any).ipcRenderer?.on('update-error', onUpdateError);
 
-    const result = await (window as any).ipcRenderer?.invoke('download-and-install-update')
+    const invoke = (window as any).ipcRenderer?.invoke
+    if (!invoke)
+      throw new Error('IPC 不可用')
+    const result = await withTimeout(
+      invoke('download-and-install-update'),
+      20000,
+      '下载更新超时'
+    )
 
     if (!result?.success) {
       checkError.value = result?.error || '下载更新失败'
@@ -200,7 +231,7 @@ async function downloadUpdate() {
       cleanupListeners()
     }
   } catch (error: any) {
-    checkError.value = error.message || '下载更新出错'
+    checkError.value = normalizeUpdateError(error)
     downloading.value = false
     cleanupListeners()
   }

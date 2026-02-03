@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { playCoreStore } from '~/playcore/store'
 import SingerItem from '~/components/SingerItem.vue'
 import Message from '~/components/message'
+import { useScroll } from '@vueuse/core'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +12,32 @@ const store = playCoreStore()
 
 const selectedTagId = ref(null)
 const listKey = ref(0) // 用于强制重新渲染列表
+const scrollRef = ref(null)
+const listRef = ref(null)
+const containerWidth = ref(0)
+const containerHeight = ref(0)
+const minCardWidth = 220
+const gridGap = 24
+const rowHeight = 224 + gridGap
+
+const { y: scrollY } = useScroll(scrollRef)
+
+function updateContainerMetrics() {
+  const listEl = listRef.value
+  const scrollEl = scrollRef.value
+  if (listEl)
+    containerWidth.value = listEl.clientWidth
+  if (scrollEl)
+    containerHeight.value = scrollEl.clientHeight
+}
+
+function getColumns(width) {
+  if (!width)
+    return 1
+  return Math.max(1, Math.floor((width + gridGap) / (minCardWidth + gridGap)))
+}
+
+const columns = computed(() => getColumns(containerWidth.value))
 
 // 从路由查询参数获取 tagid
 const tagidFromRoute = computed(() => {
@@ -32,6 +59,31 @@ const currentFollowers = computed(() => {
     // 显示特定分组的人
     return store.getFollowersByTag(selectedTagId.value)
   }
+})
+
+const totalRows = computed(() => {
+  return Math.ceil(currentFollowers.value.length / columns.value)
+})
+
+const visibleRange = computed(() => {
+  const total = currentFollowers.value.length
+  if (!total)
+    return { start: 0, end: 0, top: 0, bottom: 0 }
+  const buffer = 1
+  const startRow = Math.max(0, Math.floor(scrollY.value / rowHeight) - buffer)
+  const endRow = Math.min(
+    totalRows.value - 1,
+    Math.ceil((scrollY.value + containerHeight.value) / rowHeight) + buffer
+  )
+  const start = startRow * columns.value
+  const end = Math.min(total, (endRow + 1) * columns.value)
+  const top = startRow * rowHeight
+  const bottom = Math.max(0, (totalRows.value - endRow - 1) * rowHeight)
+  return { start, end, top, bottom }
+})
+
+const visibleFollowers = computed(() => {
+  return currentFollowers.value.slice(visibleRange.value.start, visibleRange.value.end)
 })
 
 // 获取当前分组的信息
@@ -60,6 +112,16 @@ const lastSyncTimeText = computed(() => {
 
 watch(() => selectedTagId.value, (newTagId) => {
   store.setCurrentTag(newTagId)
+  updateContainerMetrics()
+})
+
+onMounted(() => {
+  updateContainerMetrics()
+  window.addEventListener('resize', updateContainerMetrics)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateContainerMetrics)
 })
 
 // 手动同步数据
@@ -87,9 +149,9 @@ const syncData = async () => {
 <template>
   <div class="page-container flex flex-col h-full">
     <!-- 页面内容 -->
-    <section class="flex-1 overflow-auto page-inner relative">
+    <section ref="scrollRef" class="flex-1 overflow-auto page-inner relative">
       <!-- 内容区域 -->
-      <div class="relative z-10">
+      <div class="relative z-10" ref="listRef">
         <!-- 标题区域 -->
         <div class="mb-8 mt-4">
           <div class="flex items-end justify-between gap-6">
@@ -124,12 +186,13 @@ const syncData = async () => {
         </div>
 
         <!-- 歌手网格 -->
-        <TransitionGroup v-if="currentFollowers.length > 0" name="card-list" tag="div"
-          class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 auto-rows-max">
-          <SingerItem v-for="(singer, index) in currentFollowers" :key="`${listKey}-${singer.mid}`"
-            :singer-mid="String(singer.mid)" :singer-info="singer" type="card-modern" class="h-56"
-            :style="{ '--stagger-index': Math.min(index, 10) }" />
-        </TransitionGroup>
+        <div v-if="currentFollowers.length > 0"
+          :style="{ paddingTop: `${visibleRange.top}px`, paddingBottom: `${visibleRange.bottom}px` }">
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 auto-rows-max">
+            <SingerItem v-for="(singer, index) in visibleFollowers" :key="`${listKey}-${singer.mid}`"
+              :singer-mid="String(singer.mid)" :singer-info="singer" type="card-modern" class="h-56" />
+          </div>
+        </div>
 
         <!-- 空状态 -->
         <div v-else class="flex flex-col items-center justify-center py-16 text-center">
@@ -147,29 +210,6 @@ const syncData = async () => {
   width: 100%;
   height: 100%;
 
-  /* TransitionGroup 动画 */
-  .card-list-enter-active {
-    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-
-  .card-list-enter-from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-  }
-
-  .card-list-enter-to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-
-  /* 优化：列表切换时，旧元素直接隐藏，避免布局挤压或 absolute 导致的闪烁 */
-  .card-list-leave-active {
-    display: none;
-  }
-
-  /* 交错动画效果 */
-  .card-list-enter-active {
-    transition-delay: calc(var(--stagger-index, 0) * 0.03s);
-  }
+  /* 移除 TransitionGroup 动画以提升大列表滚动性能 */
 }
 </style>

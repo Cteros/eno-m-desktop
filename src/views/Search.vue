@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue'
-import { useInfiniteScroll } from '@vueuse/core'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useInfiniteScroll, useScroll } from '@vueuse/core'
 import cn from 'classnames'
 
 defineOptions({
@@ -13,6 +13,9 @@ import { invokeBiliApi, BLBL } from '~/api/bili'
 
 const scrollRef = ref(null)
 const pageNum = ref(1)
+const containerHeight = ref(0)
+const rowHeight = 64
+const bufferRows = 4
 
 const keyword = ref('')
 const result = ref([])
@@ -20,6 +23,35 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 // 单个搜索结果过少时不触发滚动加载
 const enableScrollGetMore = ref(true)
+
+const { y: scrollY } = useScroll(scrollRef)
+
+function updateContainerHeight() {
+  const el = scrollRef.value
+  if (el)
+    containerHeight.value = el.clientHeight
+}
+
+const totalRows = computed(() => result.value.length)
+
+const visibleRange = computed(() => {
+  if (!result.value.length)
+    return { start: 0, end: 0, top: 0, bottom: 0 }
+  const startRow = Math.max(0, Math.floor(scrollY.value / rowHeight) - bufferRows)
+  const endRow = Math.min(
+    totalRows.value - 1,
+    Math.ceil((scrollY.value + containerHeight.value) / rowHeight) + bufferRows
+  )
+  const start = startRow
+  const end = Math.min(result.value.length, endRow + 1)
+  const top = startRow * rowHeight
+  const bottom = Math.max(0, (totalRows.value - endRow - 1) * rowHeight)
+  return { start, end, top, bottom }
+})
+
+const visibleResults = computed(() => {
+  return result.value.slice(visibleRange.value.start, visibleRange.value.end)
+})
 
 function isUrl(url) {
   return /bilibili.com/.test(url)
@@ -86,6 +118,7 @@ async function getMoreData() {
     })
   } catch (error) {
     console.error('Search error:', error)
+    errorMessage.value = '搜索失败，请稍后重试'
     return []
   } finally {
     isLoading.value = false
@@ -142,14 +175,32 @@ async function handleSearch() {
     }
   } catch (error) {
     console.error('Search failed:', error)
+    errorMessage.value = '搜索失败，请稍后重试'
   } finally {
     isLoading.value = false
   }
 }
+
+onMounted(() => {
+  updateContainerHeight()
+  window.addEventListener('resize', updateContainerHeight)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateContainerHeight)
+})
+
+watch(
+  () => result.value.length,
+  async () => {
+    await nextTick()
+    updateContainerHeight()
+  }
+)
 </script>
 
 <template>
-  <section class="w-full h-[80vh] flex flex-col pt-6 px-2 bg-[#121212]">
+  <section class="w-full flex flex-col pt-6 px-2 bg-[#121212] h-full min-h-0">
     <!-- 搜索输入框 -->
     <div class="w-[50vw] relative group mb-8 mx-auto">
       <div class="absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none ml-1">
@@ -180,7 +231,7 @@ async function handleSearch() {
 
     <!-- 搜索结果 -->
     <div v-if="result.length && !isLoading && !errorMessage" ref="scrollRef"
-      class="flex-1 w-full overflow-y-auto scrollbar-styled pb-8">
+      class="flex-1 w-full overflow-y-auto scrollbar-styled pb-8 min-h-0">
       <div
         class="grid grid-cols-[3rem_3.5rem_1fr_4rem_3rem] gap-4 text-[#b3b3b3] text-sm border-b border-[#ffffff1a] pb-2 mb-4 px-4 sticky top-0 bg-[#121212] z-10">
         <div class="text-center">#</div>
@@ -190,8 +241,10 @@ async function handleSearch() {
         <div></div>
       </div>
 
-      <SongItem v-for="(item, index) in result" :key="item.bvid" :song="item" :index="index + 1" check-pages
-        class="hover:bg-[#ffffff1a] rounded-md px-2" />
+      <div :style="{ paddingTop: `${visibleRange.top}px`, paddingBottom: `${visibleRange.bottom}px` }">
+        <SongItem v-for="(item, index) in visibleResults" :key="item.bvid" :song="item"
+          :index="visibleRange.start + index + 1" check-pages class="hover:bg-[#ffffff1a] rounded-md px-2" />
+      </div>
     </div>
 
     <!-- 初始状态/空状态 -->
