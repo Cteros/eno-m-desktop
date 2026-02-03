@@ -130,16 +130,28 @@ defineExpose({
   latestVersion
 })
 
-function withTimeout(promise, ms, fallbackMessage) {
-  let timer
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(fallbackMessage)), ms)
-  })
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+type UpdateCheckResult = {
+  success?: boolean
+  updateAvailable?: boolean
+  currentVersion?: string
+  latestVersion?: string
+  releaseNotes?: string
+  error?: string
 }
 
-function normalizeUpdateError(err) {
-  const message = err?.message || String(err || '')
+function withTimeout<T>(promise: Promise<T>, ms: number, fallbackMessage: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(fallbackMessage)), ms)
+  })
+  return Promise.race<T>([promise, timeout]).finally(() => {
+    if (timer)
+      clearTimeout(timer)
+  })
+}
+
+function normalizeUpdateError(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err || '')
   if (message.includes('timeout') || message.includes('超时'))
     return '请求超时，请检查网络后重试'
   if (message.includes('network') || message.includes('网络'))
@@ -156,24 +168,24 @@ async function checkUpdates() {
     const invoke = (window as any).ipcRenderer?.invoke
     if (!invoke)
       throw new Error('IPC 不可用')
-    const result = await withTimeout(
+    const result = await withTimeout<UpdateCheckResult>(
       invoke('check-for-updates'),
       15000,
       '检查更新超时'
     )
 
     if (result?.success) {
-      currentVersion.value = result.currentVersion
-      latestVersion.value = result.latestVersion
+      currentVersion.value = result.currentVersion || ''
+      latestVersion.value = result.latestVersion || ''
       releaseNotes.value = result.releaseNotes || ''
-      updateAvailable.value = result.updateAvailable
+      updateAvailable.value = !!result.updateAvailable
       hasChecked.value = true
 
       emit('update-status', {
-        updateAvailable: result.updateAvailable,
-        currentVersion: result.currentVersion,
-        latestVersion: result.latestVersion,
-        releaseNotes: result.releaseNotes
+        updateAvailable: !!result.updateAvailable,
+        currentVersion: result.currentVersion || '',
+        latestVersion: result.latestVersion || '',
+        releaseNotes: result.releaseNotes || ''
       })
     } else {
       checkError.value = result?.error || '检查更新失败'
@@ -219,7 +231,7 @@ async function downloadUpdate() {
     const invoke = (window as any).ipcRenderer?.invoke
     if (!invoke)
       throw new Error('IPC 不可用')
-    const result = await withTimeout(
+    const result = await withTimeout<UpdateCheckResult>(
       invoke('download-and-install-update'),
       20000,
       '下载更新超时'
