@@ -74,12 +74,7 @@ function handleStop() {
 </script>
 
 <template>
-  <Dialog
-    :open="show"
-    class="w-[720px] max-w-[95%]"
-    bodyClass="pt-3"
-    @visibleChange="val => !val && emit('close')"
-  >
+  <Dialog :open="show" class="w-[720px] max-w-[95%]" bodyClass="pt-3" @visibleChange="val => !val && emit('close')">
     <template #header>
       <div class="flex items-center justify-between w-full">
         <div class="flex flex-col gap-1">
@@ -97,14 +92,14 @@ function handleStop() {
       <div class="flex items-center gap-3">
         <button
           class="px-3 py-1 rounded bg-[#222] hover:bg-[#333] text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          @click="handleToggleSelectAll"
-          :disabled="isLoading"
-        >
+          @click="handleToggleSelectAll" :disabled="isLoading">
           {{ selectAll ? '取消全选' : '全选' }}
         </button>
         <div class="text-sm text-gray-400">已选 {{ selectedCount }} / {{ songList.length }}</div>
       </div>
-      <div class="text-sm text-gray-400">{{ isDownloading ? `${downloadIndex}/${songList.length}` : (isLoading ? '加载中...' : '') }}</div>
+      <div class="text-sm text-gray-400">{{ isDownloading ? `${downloadIndex}/${songList.length}` : (isLoading ?
+        '加载中...' :
+        '') }}</div>
     </div>
 
     <!-- 歌曲列表 -->
@@ -114,19 +109,11 @@ function handleStop() {
         <div>正在获取歌曲列表，请稍候...</div>
       </div>
       <ul v-else class="space-y-2">
-        <li
-          v-for="(s, idx) in songList"
-          :key="s.id"
-          class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-[#1a1a1a] transition-colors"
-        >
+        <li v-for="(s, idx) in songList" :key="s.id"
+          class="flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-[#1a1a1a] transition-colors">
           <div class="flex items-center gap-3 flex-1">
-            <input
-              type="checkbox"
-              class="w-4 h-4 cursor-pointer"
-              :checked="s.selected"
-              :disabled="isDownloading"
-              @change="handleItemCheckboxChange(idx, $event)"
-            />
+            <input type="checkbox" class="w-4 h-4 cursor-pointer" :checked="s.selected" :disabled="isDownloading"
+              @change="handleItemCheckboxChange(idx, $event)" />
             <div class="text-sm text-white/80 truncate" style="max-width:520px">{{ idx + 1 }}. {{ s.title }}</div>
           </div>
           <div class="text-sm flex-shrink-0">
@@ -144,7 +131,7 @@ function handleStop() {
       <button class="eno-btn eno-btn-ghost" @click="handleStop">
         {{ isDownloading ? '停止' : '取消' }}
       </button>
-      <button class="eno-btn eno-btn-primary" @click="handleStartDownload" :disabled="!canStartDownload">
+      <button class="eno-btn eno-btn-ghost" @click="handleStartDownload" :disabled="!canStartDownload">
         <span v-if="!isDownloading">开始下载</span>
         <span v-else>正在下载 {{ downloadIndex }} / {{ songList.length }}</span>
       </button>
@@ -156,5 +143,11 @@ function handleStop() {
 /* 防止事件冒泡导致的问题 */
 input[type="checkbox"] {
   pointer-events: auto;
+}
+
+/* 移除开始下载按钮的发光效果 */
+:deep(.eno-btn-primary) {
+  box-shadow: none !important;
+  filter: none !important;
 }
 </style>

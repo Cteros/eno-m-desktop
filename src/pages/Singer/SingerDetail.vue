@@ -562,33 +562,29 @@ function stopBulkDownload() {
       :is-scrolled="isScrolled" v-model:keyword="keyword" @play="handlePlayUser"
       @search="getSongs({ mid: currentMid, keyword })" @open-external="openSingerPage">
       <template #actions>
-        <!-- 歌曲数量 -->
-        <div class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors"
-          @click="prepareBulkDownload">
-          <span class="text-white font-bold text-md">{{ page.count }}</span>
-          <span>首音乐作品</span>
-          <div class="i-mingcute:download-2-fill text-md" />
+        <!-- 下载 -->
+        <div class="action-group">
+          <button class="action-icon-btn" :title="`下载全部 (${page.count} 首)`" @click="prepareBulkDownload">
+            <div class="i-mingcute:download-2-fill" />
+          </button>
+          <span class="action-label">下载</span>
         </div>
-        <!-- 关注按钮 -->
-        <button
-          :disabled="isFollowLoading"
-          @click="handleFollowToggle"
-          :class="[
-            'eno-btn singer-follow-btn',
-            isFollowing ? 'eno-btn-primary' : 'eno-btn-ghost'
-          ]"
-        >
-          <div
-            :class="isFollowLoading ? 'animate-spin i-mingcute:loading-3-line' : (isFollowing ? 'i-mingcute:check-line' : 'i-mingcute:add-line')" />
-          <span>{{ isFollowLoading ? '处理中...' : (isFollowing ? '已关注' : '关注') }}</span>
-        </button>
-        <!-- 添加到分组按钮 -->
-        <button
-          class="p-1 rounded-full border duration-300 flex items-center gap-2 uppercase text-xs font-bold tracking-wider hover:scale-105 active:scale-95 border-none text-white"
-          @click="openAddToTagDialog">
-          <div class="i-mingcute:folder-add-line" />
-          <span>添加到分组</span>
-        </button>
+        <!-- 关注 -->
+        <div class="action-group">
+          <button class="action-icon-btn" :title="isFollowLoading ? '处理中...' : (isFollowing ? '已关注' : '关注')"
+            :disabled="isFollowLoading" @click="handleFollowToggle">
+            <div
+              :class="isFollowLoading ? 'animate-spin i-mingcute:loading-3-line' : (isFollowing ? 'i-mingcute:check-line' : 'i-mingcute:add-line')" />
+          </button>
+          <span class="action-label">{{ isFollowing ? '已关注' : '关注' }}</span>
+        </div>
+        <!-- 添加到分组 -->
+        <div class="action-group">
+          <button class="action-icon-btn" title="添加用户到分组" @click="openAddToTagDialog">
+            <div class="i-mingcute:plus-fill"></div>
+          </button>
+          <span class="action-label">添加分组</span>
+        </div>
       </template>
     </DynamicHeader>
 
@@ -669,36 +665,59 @@ function stopBulkDownload() {
 </template>
 
 <style scoped>
-.singer-follow-btn {
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-size: 12px;
-  letter-spacing: 0.06em;
+.action-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  transition: all 0.3s ease;
 }
 
-.follow-shake {
-  animation: follow-shake 0.32s ease;
+.action-group:hover {
+  color: #fff;
 }
 
-@keyframes follow-shake {
-  0% {
-    transform: translateX(0);
-  }
-  20% {
-    transform: translateX(-3px);
-  }
-  40% {
-    transform: translateX(3px);
-  }
-  60% {
-    transform: translateX(-2px);
-  }
-  80% {
-    transform: translateX(2px);
-  }
-  100% {
-    transform: translateX(0);
-  }
+.action-group:hover .action-icon-btn {
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.action-group:hover .action-label {
+  color: #fff;
+}
+
+.action-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  color: #b3b3b3;
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.action-icon-btn:active {
+  transform: scale(0.95);
+}
+
+.action-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.action-label {
+  font-size: 11px;
+  color: #b3b3b3;
+  white-space: nowrap;
+  transition: color 0.3s ease;
 }
 </style>
 
