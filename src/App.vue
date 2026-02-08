@@ -117,18 +117,19 @@ watch(
   <!-- 全局顶部拖拽条 (覆盖 p-2 间隙) -->
   <div class="fixed top-0 left-0 w-full h-4 z-[9999] pointer-events-none" style="-webkit-app-region: drag"></div>
 
-  <main class="h-screen w-screen overflow-hidden text-[#b3b3b3] font-sans app-shell p-2 gap-2">
+  <main class="h-screen w-screen overflow-hidden text-[#b3b3b3] font-sans flex flex-col gap-2 p-2">
     <GlobalGlow />
-    <div class="app-shell__main" :class="{ 'playlist-open': showPlaylist }">
+    <div class="flex-1 flex gap-0 min-h-0 w-full" :class="{ 'playlist-open': showPlaylist }">
       <!-- 左侧侧边栏 -->
-      <div class="app-shell__sider">
+      <div class="flex-shrink-0 mr-2">
         <Sider />
       </div>
 
       <!-- 主内容区 -->
-      <div class="app-shell__content">
+      <div class="flex-1 min-w-0 bg-[#121212] rounded-3xl overflow-hidden flex flex-col transition-all duration-300"
+        :style="showPlaylist ? 'transform: scale(0.992); filter: saturate(0.98) brightness(0.98);' : ''">
         <Header />
-        <div class="app-shell__content-body scrollbar-styled">
+        <div class="flex-1 overflow-y-auto relative scrollbar-styled">
           <div class="min-h-full">
             <router-view v-slot="{ Component }">
               <transition name="fade">
@@ -142,10 +143,15 @@ watch(
       </div>
 
       <!-- 右侧播放列表 -->
-      <div class="app-shell__right" :class="{ 'is-open': showPlaylist }">
-        <div class="playlist-panel">
-          <div class="playlist-panel__header">
-            <div class="flex flex-col">
+      <div
+        class="flex-shrink-0 w-0 min-w-0 overflow-hidden pointer-events-none flex h-full transition-all duration-[340ms]"
+        :style="{ width: showPlaylist ? '320px' : '0', marginLeft: showPlaylist ? '8px' : '0', pointerEvents: showPlaylist ? 'auto' : 'none' }">
+        <div
+          class="bg-[rgba(18,18,18,0.94)] border-[1px] border-[rgba(255,255,255,0.06)] rounded-4xl overflow-hidden flex flex-col w-full min-h-0 flex-1 shadow-[0_24px_60px_rgba(0,0,0,0.35)] transition-all duration-[280ms]"
+          :style="showPlaylist ? 'opacity: 1; transform: translateX(0) scale(1);' : 'opacity: 0; transform: translateX(12px) scale(0.985);'">
+          <div
+            class="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-[rgba(255,255,255,0.06)] bg-gradient-to-b from-[rgba(32,32,32,0.95)] to-[rgba(18,18,18,0.95)]">
+            <div class="flex flex-col gap-1">
               <span class="text-lg font-bold text-white">播放列表</span>
               <span class="text-xs text-gray-500">共 {{ (store.playList as any[]).length }} 首</span>
             </div>
@@ -154,25 +160,18 @@ watch(
               关闭
             </button>
           </div>
-          <div class="playlist-panel__body scrollbar-styled">
-            <SongItem
-              v-for="(song, index) in (store.playList as any[])"
-              :key="(song as any).id"
-              show-active
-              del
-              :song="song"
-              size="mini"
-              @delete-song="deleteSong(index)"
-              class="playlist-panel__item"
-              :style="{ transitionDelay: `${Math.min(index, 12) * 12}ms` }"
-            />
+          <div class="flex-1 overflow-y-auto p-2.5 min-h-0 scrollbar-styled">
+            <SongItem v-for="(song, index) in (store.playList as any[])" :key="(song as any).id" show-active del
+              :song="song" size="mini" @delete-song="deleteSong(index)"
+              class="rounded-2.5 transition-all duration-200 hover:bg-[rgba(255,255,255,0.06)]"
+              :style="{ transitionDelay: `${Math.min(index, 12) * 12}ms` }" />
           </div>
         </div>
       </div>
     </div>
 
     <!-- 底部播放栏 -->
-    <div class="app-shell__player">
+    <div class="h-[72px] z-50">
       <Play />
     </div>
 
@@ -183,117 +182,6 @@ watch(
 </template>
 
 <style>
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.app-shell__main {
-  flex: 1;
-  display: flex;
-  gap: 8px;
-  min-height: 0;
-}
-
-.app-shell__sider {
-  flex: 0 0 auto;
-}
-
-.app-shell__content {
-  flex: 1 1 auto;
-  min-width: 0;
-  background: #121212;
-  border-radius: 12px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.3s ease, filter 0.3s ease;
-}
-
-.app-shell__content-body {
-  flex: 1;
-  overflow-y: auto;
-  position: relative;
-}
-
-.app-shell__right {
-  flex: 0 0 auto;
-  width: 0;
-  min-width: 0;
-  overflow: hidden;
-  pointer-events: none;
-  display: flex;
-  height: 100%;
-  transition: width 0.34s cubic-bezier(0.2, 0.7, 0, 1);
-}
-
-.app-shell__right.is-open {
-  width: 320px;
-  pointer-events: auto;
-}
-
-.app-shell__main.playlist-open .app-shell__content {
-  transform: scale(0.992);
-  filter: saturate(0.98) brightness(0.98);
-}
-
-.app-shell__player {
-  height: 72px;
-  z-index: 50;
-}
-
-.playlist-panel {
-  background: rgba(18, 18, 18, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-height: 0;
-  flex: 1;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-}
-
-.playlist-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(180deg, rgba(32, 32, 32, 0.95), rgba(18, 18, 18, 0.95));
-}
-
-.playlist-panel__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  min-height: 0;
-}
-
-.playlist-panel__item {
-  border-radius: 10px;
-  transition: background-color 0.2s ease, transform 0.2s ease;
-}
-
-.playlist-panel__item:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.playlist-panel {
-  opacity: 0;
-  transform: translateX(12px) scale(0.985);
-  transition: opacity 0.28s ease, transform 0.28s ease;
-}
-
-.app-shell__right.is-open .playlist-panel {
-  opacity: 1;
-  transform: translateX(0) scale(1);
-}
-
-
 html {
   background: #000;
 }
