@@ -58,30 +58,13 @@ function deleteSong(index: number) {
   store.playList.splice(index, 1)
 }
 
-function toRgb(color: string) {
-  if (!color)
-    return null
-  if (color.startsWith('#') && color.length === 7) {
-    return {
-      r: parseInt(color.slice(1, 3), 16),
-      g: parseInt(color.slice(3, 5), 16),
-      b: parseInt(color.slice(5, 7), 16),
-    }
-  }
-  const match = color.match(/rgba?\\(([^)]+)\\)/)
-  if (!match)
-    return null
-  const parts = match[1].split(',').map(part => Number(part.trim()))
-  if (parts.length < 3 || parts.some((v) => Number.isNaN(v)))
-    return null
-  return { r: parts[0], g: parts[1], b: parts[2] }
-}
-
-function toRgba(color: string, alpha: number) {
-  const rgb = toRgb(color)
-  if (!rgb)
-    return color
-  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`
+/**
+ * 颜色转换工具：将16进制颜色转换为带透明度的16进制
+ */
+function colorWithAlpha(color: string, alpha: number) {
+  if (!color || !color.startsWith('#')) return color
+  const a = Math.round(alpha * 255).toString(16).padStart(2, '0')
+  return color + a
 }
 
 function setThemeVars(color: string) {
@@ -89,10 +72,10 @@ function setThemeVars(color: string) {
     return
   const root = document.documentElement
   root.style.setProperty('--eno-glow', color)
-  root.style.setProperty('--eno-glow-soft', toRgba(color, 0.2))
-  root.style.setProperty('--eno-glow-strong', toRgba(color, 0.45))
+  root.style.setProperty('--eno-glow-soft', colorWithAlpha(color, 0.2))
+  root.style.setProperty('--eno-glow-strong', colorWithAlpha(color, 0.45))
   root.style.setProperty('--eno-accent', color)
-  root.style.setProperty('--eno-accent-soft', toRgba(color, 0.25))
+  root.style.setProperty('--eno-accent-soft', colorWithAlpha(color, 0.25))
 }
 
 watch(
@@ -126,7 +109,7 @@ watch(
       </div>
 
       <!-- 主内容区 -->
-      <div class="flex-1 min-w-0 bg-[#121212] rounded-3xl overflow-hidden flex flex-col transition-all duration-300"
+      <div class="flex-1 min-w-0 bg-[#121212] rounded-lg overflow-hidden flex flex-col transition-all duration-300"
         :style="showPlaylist ? 'transform: scale(0.992); filter: saturate(0.98) brightness(0.98);' : ''">
         <Header />
         <div class="flex-1 overflow-y-auto relative scrollbar-styled">
@@ -144,13 +127,13 @@ watch(
 
       <!-- 右侧播放列表 -->
       <div
-        class="flex-shrink-0 w-0 min-w-0 overflow-hidden pointer-events-none flex h-full transition-all duration-[340ms]"
-        :style="{ width: showPlaylist ? '320px' : '0', marginLeft: showPlaylist ? '8px' : '0', pointerEvents: showPlaylist ? 'auto' : 'none' }">
+        class="flex-shrink-0 w-0 min-w-0 overflow-hidden pointer-events-none flex h-full transition-all duration-[340ms] relative"
+        :style="{ width: showPlaylist ? '320px' : '0', marginLeft: showPlaylist ? '8px' : '0', pointerEvents: showPlaylist ? 'auto' : 'none', opacity: showPlaylist ? '1' : '0' }">
         <div
-          class="bg-[rgba(18,18,18,0.94)] border-[1px] border-[rgba(255,255,255,0.06)] rounded-4xl overflow-hidden flex flex-col w-full min-h-0 flex-1 shadow-[0_24px_60px_rgba(0,0,0,0.35)] transition-all duration-[280ms]"
+          class="absolute top-0 left-0 w-[320px] h-full bg-[rgb(18_18_18_/_0.94)] border-[1px] border-[rgb(255_255_255_/_0.06)] rounded-lg overflow-hidden flex flex-col flex-1 shadow-[0_24px_60px_rgb(0_0_0_/_0.35)] transition-all duration-[280ms]"
           :style="showPlaylist ? 'opacity: 1; transform: translateX(0) scale(1);' : 'opacity: 0; transform: translateX(12px) scale(0.985);'">
           <div
-            class="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-[rgba(255,255,255,0.06)] bg-gradient-to-b from-[rgba(32,32,32,0.95)] to-[rgba(18,18,18,0.95)]">
+            class="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-[rgb(255_255_255_/_0.06)] bg-gradient-to-b from-[rgb(32_32_32_/_0.95)] to-[rgb(18_18_18_/_0.95)]">
             <div class="flex flex-col gap-1">
               <span class="text-lg font-bold text-white">播放列表</span>
               <span class="text-xs text-gray-500">共 {{ (store.playList as any[]).length }} 首</span>
@@ -163,7 +146,7 @@ watch(
           <div class="flex-1 overflow-y-auto p-2.5 min-h-0 scrollbar-styled">
             <SongItem v-for="(song, index) in (store.playList as any[])" :key="(song as any).id" show-active del
               :song="song" size="mini" @delete-song="deleteSong(index)"
-              class="rounded-2.5 transition-all duration-200 hover:bg-[rgba(255,255,255,0.06)]"
+              class="rounded-lg transition-all duration-200 hover:bg-[rgb(255_255_255_/_0.06)]"
               :style="{ transitionDelay: `${Math.min(index, 12) * 12}ms` }" />
           </div>
         </div>
@@ -197,12 +180,12 @@ html {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgb(255 255 255 / 0.3);
   border-radius: 4px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(255 255 255 / 0.5);
 }
 
 img {
