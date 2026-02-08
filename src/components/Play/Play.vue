@@ -482,10 +482,10 @@ async function downloadSong() {
   <section class="flex flex-col w-full h-full bg-black text-[#b3b3b3]">
     <div class="flex h-full items-center justify-between px-4 gap-4">
       <!-- 左侧信息区 -->
-      <div class="flex items-center gap-4 w-[30%] min-w-[200px]">
-        <div class="relative group cursor-pointer" @click.stop="openBlTab">
-          <img v-if="store.play.cover" :src="store.play.cover" class="w-14 h-14 rounded object-cover bg-[#282828]">
-          <div v-else class="w-14 h-14 rounded bg-[#282828] flex items-center justify-center">
+      <div class="flex items-center w-[30%] min-w-[200px]">
+        <div class="relative group cursor-pointer size-12 flex-shrink-0 mr-2" @click.stop="openBlTab">
+          <img v-if="store.play.cover" :src="store.play.cover" class="w-full h-full rounded object-cover">
+          <div v-else class="rounded bg-[#282828] flex items-center justify-center">
             <div class="i-mingcute:music-2-fill text-2xl" />
           </div>
           <!-- 展开视频图标 -->
@@ -501,9 +501,20 @@ async function downloadSong() {
           </div>
         </div>
 
-        <div class="flex gap-3 pl-2">
+        <div class="flex gap-3 pl-2 mr-2">
           <div class="i-mingcute:heart-line hover:text-white cursor-pointer text-lg"
             @click.stop="PLstore.startAddSong(store.play)" />
+        </div>
+        <div
+          :class="cn('cursor-pointer text-lg transition-colors hover:text-white relative group', isDownloading ? 'text-[#1db954]' : '')"
+          @click="!isDownloading && downloadSong()" :title="isDownloading ? '下载中...' : '下载歌曲'">
+          <div v-if="isDownloading" class="i-mingcute:loading-3-fill animate-spin" />
+          <div v-else class="i-mingcute:download-2-fill" />
+          <!-- 下载进度提示 -->
+          <div v-if="isDownloading && downloadProgress > 0"
+            class="absolute -top-8 right-0 bg-black/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+            {{ Math.round(downloadProgress) }}%
+          </div>
         </div>
       </div>
 
@@ -519,40 +530,21 @@ async function downloadSong() {
           </template>
         </PlayControlBar>
 
-        <ProgressBar
-          :percent="progress.percent"
-          :current="progress.current"
-          :total="progress.total"
-          @seek="handleSeekPercent"
-          @dragging="handleDragging"
-        />
+        <ProgressBar :percent="progress.percent" :current="progress.current" :total="progress.total"
+          @seek="handleSeekPercent" @dragging="handleDragging" />
       </div>
 
       <!-- 右侧功能区 -->
       <div class="flex items-center justify-end gap-3 w-[30%] min-w-[200px]">
-        <div
-          :class="cn('i-mingcute:playlist-fill cursor-pointer text-lg transition-colors', showPlaylist ? 'text-[#1db954]' : 'hover:text-white')"
-          @click="toggleList" />
-
-        <div
-          :class="cn('cursor-pointer text-lg transition-colors hover:text-white relative group', isDownloading ? 'text-[#1db954]' : '')"
-          @click="!isDownloading && downloadSong()" :title="isDownloading ? '下载中...' : '下载歌曲'">
-          <div v-if="isDownloading" class="i-mingcute:loading-3-fill animate-spin" />
-          <div v-else class="i-mingcute:download-2-fill" />
-          <!-- 下载进度提示 -->
-          <div v-if="isDownloading && downloadProgress > 0"
-            class="absolute -top-8 right-0 bg-black/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-            {{ Math.round(downloadProgress) }}%
-          </div>
-        </div>
-
         <div class="flex items-center gap-2 w-32 group">
           <div v-if="isCloseVoice" class="i-mingcute:volume-mute-line text-lg" @click="setVoice" />
           <div v-else class="i-mingcute:volume-line text-lg" @click="setVoice" />
           <Slider v-if="!isCloseVoice" class="flex-1 h-1" :value="voice" @update:value="val => (voice = val)"
             @change="handleChangeVoice" />
         </div>
-
+        <div
+          :class="cn('i-mingcute:playlist-fill cursor-pointer text-lg transition-colors', showPlaylist ? 'text-[#1db954]' : 'hover:text-white')"
+          @click="toggleList" />
         <div class="i-mingcute:fullscreen-line hover:text-white cursor-pointer text-lg" @click="fullScreenTheBody" />
       </div>
     </div>

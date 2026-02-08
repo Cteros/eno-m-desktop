@@ -8,7 +8,7 @@ import Header from './components/Header.vue'
 import SongItem from './components/SongItem.vue'
 import WallpaperGen from './components/wallpaper-gen/index.vue'
 import AddSong from './playlist/AddSong.vue'
-import UpdateCheck from './components/UpdateCheck.vue'
+// import UpdateCheck from './components/UpdateCheck.vue'
 import GlobalGlow from './components/GlobalGlow.vue'
 import { useBlblStore } from './blbl/store'
 import { invokeBiliApi, BLBL } from './api/bili'
@@ -160,7 +160,7 @@ watch(
 
     <WallpaperGen />
     <AddSong />
-    <UpdateCheck />
+    <!-- <UpdateCheck /> -->
   </main>
 </template>
 
