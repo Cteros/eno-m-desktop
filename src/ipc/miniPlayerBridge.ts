@@ -10,7 +10,7 @@ export function initMiniPlayerBridge(pinia: Pinia) {
   const store = useBlblStore()
 
   const pickSafePlay = () => {
-    const raw = toRaw(store.play || {})
+    const raw = toRaw(store.play || {}) as Record<string, any>
     return {
       id: raw.id,
       title: raw.title,
