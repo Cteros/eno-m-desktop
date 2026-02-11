@@ -92,16 +92,16 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, #111 0%, #0a0a0a 100%);
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  display: grid;
-  grid-template-columns: 64px 1fr auto;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   align-items: center;
-  padding: 10px 12px;
+  padding: 12px;
 }
 
 .miniplayer-cover {
-  width: 64px;
-  height: 64px;
+  width: 110px;
+  height: 110px;
   border-radius: 10px;
   overflow: hidden;
   background: #1b1b1b;
@@ -126,6 +126,8 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  align-items: center;
+  text-align: center;
 }
 
 .miniplayer-title {
@@ -135,6 +137,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 90%;
 }
 
 .miniplayer-author {
@@ -143,12 +146,13 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 90%;
 }
 
 .miniplayer-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .mini-btn {

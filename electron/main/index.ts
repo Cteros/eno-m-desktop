@@ -84,8 +84,8 @@ function createMiniPlayerWindow() {
   if (miniPlayerWin && !miniPlayerWin.isDestroyed()) return miniPlayerWin
 
   miniPlayerWin = new BrowserWindow({
-    width: 360,
-    height: 120,
+    width: 320,
+    height: 220,
     resizable: false,
     minimizable: false,
     maximizable: false,
