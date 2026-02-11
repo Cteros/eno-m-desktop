@@ -24,6 +24,7 @@ interface State {
 	howl: any;
 	play: object;
 	playList: RemovableRef<object[]>;
+	historyList: RemovableRef<number[]>;
 	count: number;
 	loopMode: RemovableRef<string>;
 	videoMode: RemovableRef<VideoMode>;
@@ -52,6 +53,7 @@ export const useBlblStore = defineStore("blbl", {
 		analyser: null,
 		play: useStorage("playInfo", {}), // 当前播放的歌曲信息
 		playList: useStorage("playList", []), // 播放列表
+		historyList: useStorage("playHistory", []),
 		count: 0,
 		loopMode: useStorage("loopMode", "list"),
 		videoMode: useStorage("videoMode", VIDEO_MODE.FLOATING),
@@ -143,6 +145,56 @@ export const useBlblStore = defineStore("blbl", {
 			this.play = song;
 			const isInList = this.playList.some((item: any) => item?.id === song.id);
 			if (!isInList) this.playList.push(song);
+			const index = this.playList.findIndex((s: any) => s?.id === song.id);
+			if (index >= 0) this.recordHistoryIndex(index);
+		},
+		recordHistoryIndex(index: number) {
+			if (index < 0) return;
+			const last = this.historyList.at(-1);
+			if (last !== index) this.historyList.push(index);
+		},
+		playNext() {
+			const list = this.playList || [];
+			if (!list.length) return;
+
+			let index = this.historyList.at(-1);
+			if (index == null || index < 0) {
+				index = list.findIndex((s: any) => s?.id === (this.play as any)?.id);
+				if (index < 0) index = 0;
+			}
+
+			if (this.loopMode === "random") {
+				index = Math.floor(Math.random() * list.length);
+			} else if (this.loopMode === "single") {
+				// stay
+			} else {
+				index = (index + 1) % list.length;
+			}
+
+			this.historyList.push(index);
+			this.play = list[index];
+		},
+		playPrevious() {
+			const list = this.playList || [];
+			if (!list.length) return;
+
+			let index = this.historyList.at(-1);
+			if (index == null || index < 0) {
+				index = list.findIndex((s: any) => s?.id === (this.play as any)?.id);
+				if (index < 0) index = 0;
+			}
+
+			if (this.loopMode === "random") {
+				const removed = this.historyList.splice(-2);
+				index = removed[0] ?? this.historyList.at(-1) ?? 0;
+			} else if (this.loopMode === "single") {
+				// stay
+			} else {
+				index = (index - 1 + list.length) % list.length;
+			}
+
+			this.historyList.push(index);
+			this.play = list[index];
 		},
 		getHitDetailList(sid: number) {
 			invokeBiliApi(BLBL.GET_HIT_SONG_LIST, {
@@ -160,5 +212,4 @@ export const useBlblStore = defineStore("blbl", {
 });
 
 export type BlblStore = ReturnType<typeof useBlblStore>;
-
 

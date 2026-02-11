@@ -46,7 +46,6 @@ function getUpUrl(obj) {
 
 const isPlaying = ref(false)
 // const showList = ref(false) // 移除本地状态
-const historyList = ref([])
 const progress = reactive({
   percent: 0,
   current: 0,
@@ -117,9 +116,7 @@ function initMusic() {
 
   // 判断当前歌曲是否在播放列表中，如果不在就插入，用于点击歌曲播放时防止 history 无法记录
   const index = store.playList.findIndex(({ id }) => id === store.play.id)
-  if (index !== historyList.value.at(-1)) {
-    historyList.value.push(index)
-  }
+  store.recordHistoryIndex(index)
 
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -281,30 +278,10 @@ watch(() => store.play?.id, async () => {
 })
 // 顺序切换
 function change(type) {
-  let index = historyList.value.at(-1) || 0
-  const { playList, loopMode } = store
-
-  if (loopMode === 'random') {
-    if (type === 'next') {
-      index = Math.floor(Math.random() * playList.length)
-    }
-    else if (type === 'prev') {
-      // 移除最后两个，并播放上一个
-      const remove = historyList.value.splice(-2)
-      index = remove[0] || 0
-    }
-  }
-  else {
-    const currentLength = playList.length
-
-    if (type === 'next')
-      index = (index + 1) % currentLength
-    else if (type === 'prev')
-      index = (index - 1 + currentLength) % currentLength
-  }
-
-  historyList.value.push(index)
-  store.play = playList[index]
+  if (type === 'next')
+    store.playNext()
+  else if (type === 'prev')
+    store.playPrevious()
 }
 function handleSeekPercent(percent) {
   if (!store.play?.id)

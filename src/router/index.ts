@@ -43,6 +43,11 @@ const router = createRouter({
 			name: "setting",
 			component: () => import("../pages/Setting.vue"),
 		},
+		{
+			path: "/miniplayer",
+			name: "miniplayer",
+			component: () => import("../pages/MiniPlayer.vue"),
+		},
 	],
 });
 

@@ -1,7 +1,8 @@
 <!-- eslint-disable no-console -->
 <script setup lang="ts">
 import './styles/index.ts'
-import { ref, onMounted, provide, watch } from 'vue'
+import { ref, onMounted, provide, watch, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import Play from './components/Play/Play.vue'
 import Sider from './components/Sider.vue'
 import Header from './components/Header.vue'
@@ -19,6 +20,8 @@ const userInfo = ref({})
 const store = useBlblStore()
 const uiStore = useUIStore()
 const { getColor } = useImageThemeColor()
+const route = useRoute()
+const isMiniPlayer = computed(() => route.name === 'miniplayer')
 console.log('App version: 3.2.22')
 
 // 播放列表显隐状态（可以由Play组件或全局控制）
@@ -100,7 +103,11 @@ watch(
   <!-- 全局顶部拖拽条 (覆盖 p-2 间隙) -->
   <div class="fixed top-0 left-0 w-full h-4 z-[9999] pointer-events-none" style="-webkit-app-region: drag"></div>
 
-  <main class="h-screen w-screen overflow-hidden text-[#b3b3b3] font-sans flex flex-col gap-2 p-2">
+  <div v-if="isMiniPlayer" class="h-screen w-screen bg-black">
+    <router-view />
+  </div>
+
+  <main v-else class="h-screen w-screen overflow-hidden text-[#b3b3b3] font-sans flex flex-col gap-2 p-2">
     <GlobalGlow />
     <div class="flex-1 flex gap-0 min-h-0 w-full" :class="{ 'playlist-open': showPlaylist }">
       <!-- 左侧侧边栏 -->

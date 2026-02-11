@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain, session, dialog } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, session, dialog, Tray, Menu, nativeImage, screen } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
@@ -52,6 +52,8 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let win: BrowserWindow | null = null
+let tray: Tray | null = null
+let miniPlayerWin: BrowserWindow | null = null
 
 // 处理协议链接
 function handleUrl(url: string) {
@@ -77,6 +79,109 @@ function handleUrl(url: string) {
 
 const preload = path.join(__dirname, '../preload/index.mjs')
 const indexHtml = path.join(RENDERER_DIST, 'index.html')
+
+function createMiniPlayerWindow() {
+  if (miniPlayerWin && !miniPlayerWin.isDestroyed()) return miniPlayerWin
+
+  miniPlayerWin = new BrowserWindow({
+    width: 360,
+    height: 120,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    show: false,
+    frame: false,
+    transparent: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: '#000000',
+    webPreferences: {
+      preload,
+    },
+  })
+
+  miniPlayerWin.setMenu(null)
+  miniPlayerWin.setAlwaysOnTop(true, 'pop-up-menu')
+  miniPlayerWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  if (VITE_DEV_SERVER_URL) {
+    miniPlayerWin.loadURL(`${VITE_DEV_SERVER_URL}#/miniplayer`)
+  } else {
+    miniPlayerWin.loadFile(indexHtml, { hash: '/miniplayer' })
+  }
+
+  miniPlayerWin.on('blur', () => {
+    if (miniPlayerWin?.webContents.isDevToolsOpened()) return
+    miniPlayerWin?.hide()
+  })
+
+  miniPlayerWin.on('closed', () => {
+    miniPlayerWin = null
+  })
+
+  return miniPlayerWin
+}
+
+function showMiniPlayer() {
+  if (!tray) return
+  const mini = createMiniPlayerWindow()
+  const trayBounds = tray.getBounds()
+  const winBounds = mini.getBounds()
+  const display = screen.getDisplayNearestPoint({ x: trayBounds.x, y: trayBounds.y })
+  const maxX = display.workArea.x + display.workArea.width - winBounds.width
+  const minX = display.workArea.x
+
+  const x = Math.min(
+    Math.max(Math.round(trayBounds.x + trayBounds.width / 2 - winBounds.width / 2), minX),
+    maxX
+  )
+  const y = Math.round(trayBounds.y + trayBounds.height + 4)
+
+  mini.setPosition(x, y, false)
+  mini.show()
+  mini.focus()
+}
+
+function toggleMiniPlayer() {
+  if (!miniPlayerWin || miniPlayerWin.isDestroyed()) {
+    showMiniPlayer()
+    return
+  }
+  if (miniPlayerWin.isVisible()) miniPlayerWin.hide()
+  else showMiniPlayer()
+}
+
+function createTray() {
+  if (process.platform !== 'darwin') return
+  if (tray && !tray.isDestroyed()) return
+
+  const iconPath = path.join(process.env.VITE_PUBLIC, 'logo.png')
+  const image = nativeImage.createFromPath(iconPath)
+  const trayIcon = image.isEmpty() ? image : image.resize({ width: 18, height: 18 })
+
+  tray = new Tray(trayIcon)
+  tray.setToolTip('Eno M')
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '打开主窗口',
+      click: () => {
+        if (win && !win.isDestroyed()) {
+          win.show()
+          win.focus()
+        } else {
+          createWindow()
+        }
+      },
+    },
+    { type: 'separator' },
+    { label: '退出', click: () => app.quit() },
+  ])
+
+  tray.setContextMenu(contextMenu)
+  tray.on('click', () => toggleMiniPlayer())
+}
 
 async function createWindow() {
   // 初始化 cookie
@@ -128,6 +233,7 @@ async function createWindow() {
 
 app.whenReady().then(() => {
   createWindow()
+  createTray()
   setupDownloadHandlers()
   setupUpdateHandlers()
   ipcMain.handle('set-window-size', async (_event, size: { width: number; height: number }) => {
@@ -185,6 +291,30 @@ app.whenReady().then(() => {
       return { success: true }
     } catch (e: any) {
       return { success: false, error: e.message }
+    }
+  })
+  ipcMain.handle('show-main-window', async () => {
+    if (win && !win.isDestroyed()) {
+      win.show()
+      win.focus()
+      return { success: true }
+    }
+    createWindow()
+    return { success: true }
+  })
+  ipcMain.on('mini-player-command', (_event, cmd) => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('mini-player-command', cmd)
+    }
+  })
+  ipcMain.on('mini-player-request-state', () => {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('mini-player-request-state')
+    }
+  })
+  ipcMain.on('mini-player-state', (_event, state) => {
+    if (miniPlayerWin && !miniPlayerWin.isDestroyed()) {
+      miniPlayerWin.webContents.send('mini-player-state', state)
     }
   })
   // 拦截 B 站图片请求，设置 Referer 防止 403
