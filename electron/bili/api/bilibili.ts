@@ -1,5 +1,6 @@
 import { AHS } from '../utils'
 import { BLBL } from '../msg.define'
+import { getGlobalCookie } from '../cookie'
 
 const baseUrl = 'https://api.bilibili.com'
 
@@ -155,6 +156,37 @@ const api = {
       bvid: '',
     },
     afterHandle: AHS.J,
+  },
+  // 获取视频字幕轨道元数据
+  [BLBL.GET_VIDEO_SUBTITLE]: {
+    url: `${baseUrl}/x/player/v2`,
+    _fetch: {
+      method: 'get',
+    },
+    params: {
+      aid: 0,
+      bvid: '',
+      cid: 0,
+    },
+    afterHandle: AHS.J,
+  },
+  // 根据 subtitle_url 获取字幕内容
+  [BLBL.GET_VIDEO_SUBTITLE_CONTENT]: async (message: any) => {
+    const rawUrl = String(message?.url || '')
+    if (!rawUrl)
+      throw new Error('subtitle url is required')
+
+    const url = rawUrl.startsWith('//') ? `https:${rawUrl}` : rawUrl
+    const cookie = getGlobalCookie()
+    const response = await fetch(url, {
+      method: 'get',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/',
+        'Cookie': cookie,
+      },
+    })
+    return response.json()
   },
   // 获取用户信息 https://api.bilibili.com/x/web-interface/card
   [BLBL.GET_USER_INFO]: {

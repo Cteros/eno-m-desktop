@@ -161,6 +161,29 @@ function handleBiliLogin() {
 function handleBiliLogout() {
   user.value = null
 }
+
+function clearLocalCache() {
+  const ok = window.confirm('确定清除本地缓存吗？这会清空本地保存的播放列表、偏好设置和登录状态。')
+  if (!ok)
+    return
+
+  try {
+    localStorage.clear()
+    Message.show({
+      type: 'success',
+      message: '本地缓存已清除，正在刷新...',
+    })
+    setTimeout(() => {
+      window.location.reload()
+    }, 300)
+  } catch (error) {
+    console.error('Failed to clear local cache:', error)
+    Message.show({
+      type: 'error',
+      message: '清除缓存失败',
+    })
+  }
+}
 </script>
 
 <template>
@@ -173,6 +196,9 @@ function handleBiliLogout() {
         </div>
         <div class="settings-hero__meta">
           <span class="text-xs text-gray-500">偏好设置已自动保存</span>
+          <button class="eno-btn eno-btn-ghost text-red-300 hover:text-red-200 ml-3" @click="clearLocalCache">
+            清除本地缓存
+          </button>
         </div>
       </div>
 

@@ -14,6 +14,8 @@ enum BLBL {
   SEARCH = 'search',
   GET_AUDIO_OF_VIDEO = 'getAudioOfVideo',
   GET_VIDEO_INFO = 'getVideoInfo',
+  GET_VIDEO_SUBTITLE = 'getVideoSubtitle',
+  GET_VIDEO_SUBTITLE_CONTENT = 'getVideoSubtitleContent',
   GET_USER_INFO = 'getUserInfo',
   GET_RANKING = 'getRanking',
   GET_MUSIC_RANK_LIST = 'getMusicRankList',
@@ -59,4 +61,3 @@ export const invokeBiliApi = async (query: BLBL, params: BiliApiParams = {}) => 
 }
 
 export { BLBL }
-

@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useBlblStore } from '../../blbl/store'
-import { useLocalStorage } from '@vueuse/core'
-import { ProgressBar, Slider } from '../common'
+import { ProgressBar } from '../common'
 import { useImageThemeColor } from '@/composables/useImageThemeColor'
+import { invokeBiliApi, BLBL } from '~/api/bili'
 
 const props = defineProps({
   show: {
@@ -20,15 +20,276 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:show', 'close', 'play', 'prev', 'next', 'seek', 'volume'])
+const emit = defineEmits(['update:show', 'close', 'play', 'prev', 'next', 'seek'])
 
 const store = useBlblStore()
-const canvasRef = ref(null)
-const containerRef = ref(null)
 const themeColor = ref('#1db954')
-const animationFrameId = ref(0)
-const voice = useLocalStorage('voice', 100)
 const { getColor } = useImageThemeColor()
+const subtitleLines = ref([])
+const subtitleLoading = ref(false)
+const subtitleError = ref('')
+const subtitleCache = new Map()
+const subtitleRequestId = ref(0)
+const lyricItemRefs = ref([])
+const lyricsScrollRef = ref(null)
+const subtitleDebug = ref({
+  fetchedAt: '',
+  bvid: '',
+  storePlaySnapshot: {},
+  videoInfo: {},
+  subtitleMeta: {},
+  selectedTrack: {},
+  subtitleUrl: '',
+  lineCount: 0,
+  cacheHit: false,
+  error: '',
+})
+
+const normalizeSubtitleUrl = (url) => {
+  if (!url)
+    return ''
+  if (url.startsWith('//'))
+    return `https:${url}`
+  return url
+}
+
+const sortSubtitleTracks = (subtitles) => {
+  if (!Array.isArray(subtitles) || !subtitles.length)
+    return []
+  const isZh = (track) => /zh|中文|汉语|国语/i.test(`${track?.lan || ''} ${track?.lan_doc || ''}`)
+  const isAi = (track) => {
+    const aiStatus = Number(track?.ai_status || 0)
+    const aiType = Number(track?.ai_type || 0)
+    const text = `${track?.lan_doc || ''} ${track?.lan || ''}`
+    return aiStatus === 1 || aiType > 0 || /ai|智能|自动/i.test(text)
+  }
+
+  const zhAi = subtitles.filter(track => isAi(track) && isZh(track))
+  const ai = subtitles.filter(track => isAi(track) && !isZh(track))
+  const zh = subtitles.filter(track => !isAi(track) && isZh(track))
+  const normal = subtitles.filter(track => !isAi(track) && !isZh(track))
+
+  // 优先中文 AI，其次任意 AI，再回退普通中文字幕和其他字幕
+  return [...zhAi, ...ai, ...zh, ...normal]
+}
+
+const parseSubtitleBody = (data) => {
+  const body = data?.body
+  if (!Array.isArray(body))
+    return []
+  return body
+    .map(item => ({
+      from: Number(item?.from || 0),
+      to: Number(item?.to || 0),
+      content: String(item?.content || '').trim(),
+    }))
+    .filter(item => item.content && item.to > item.from)
+}
+
+const isTrackStillCurrent = (target) => {
+  const currentBvid = String(store.play?.bvid || '')
+  const currentCid = Number(store.play?.cid || 0)
+  // 当当前播放未携带 cid 时，仅按 bvid 绑定，避免误判为“已切歌”
+  return currentBvid === String(target.bvid || '') && (!currentCid || currentCid === Number(target.cid || 0))
+}
+
+const withTimeout = (promise, ms = 12000, label = 'request') => {
+  let timer = 0
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(`${label} timeout`)), ms)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer)
+      window.clearTimeout(timer)
+  })
+}
+
+const fetchSubtitles = async () => {
+  const bvid = store.play?.bvid
+  let cid = Number(store.play?.cid || 0)
+  let aid = store.play?.aid
+  if (!bvid) {
+    subtitleLines.value = []
+    subtitleLoading.value = false
+    subtitleError.value = '暂无字幕'
+    subtitleDebug.value = {
+      fetchedAt: new Date().toISOString(),
+      bvid: '',
+      storePlaySnapshot: { ...(store.play || {}) },
+      videoInfo: {},
+      subtitleMeta: {},
+      selectedTrack: {},
+      subtitleUrl: '',
+      lineCount: 0,
+      cacheHit: false,
+      error: subtitleError.value,
+    }
+    return
+  }
+
+  const requestId = ++subtitleRequestId.value
+  subtitleLoading.value = true
+  subtitleError.value = ''
+  subtitleLines.value = []
+  subtitleDebug.value = {
+    fetchedAt: new Date().toISOString(),
+    bvid: bvid || '',
+    storePlaySnapshot: { ...(store.play || {}) },
+    videoInfo: {},
+    subtitleMeta: {},
+    selectedTrack: {},
+    subtitleUrl: '',
+    lineCount: 0,
+    cacheHit: false,
+    error: '',
+  }
+
+  try {
+    // 先拉视频信息，确保字幕请求参数绑定到当前播放项
+    const info = await withTimeout(
+      invokeBiliApi(BLBL.GET_VIDEO_INFO, { bvid }),
+      12000,
+      'get video info'
+    )
+    const pages = Array.isArray(info?.data?.pages) ? info.data.pages : []
+    subtitleDebug.value.videoInfo = {
+      aid: info?.data?.aid,
+      cid: info?.data?.cid,
+      pages: pages.map(page => ({
+        cid: page?.cid,
+        page: page?.page,
+        part: page?.part,
+      })),
+    }
+    const latestAid = info?.data?.aid
+    const latestCid = Number(info?.data?.cid || pages?.[0]?.cid || 0)
+    if (!cid)
+      cid = latestCid
+    else if (pages.length && !pages.some(page => Number(page?.cid || 0) === cid))
+      cid = latestCid
+    aid = latestAid || aid
+
+    const cacheKey = `${bvid}:${cid || 0}`
+    const boundTrack = { bvid: String(bvid), cid: Number(cid || 0) }
+
+    if (subtitleCache.has(cacheKey)) {
+      if (!isTrackStillCurrent(boundTrack))
+        return
+      subtitleLines.value = subtitleCache.get(cacheKey)
+      subtitleDebug.value.cacheHit = true
+      subtitleDebug.value.lineCount = subtitleLines.value.length
+      return
+    }
+
+    const subtitleMeta = await withTimeout(
+      invokeBiliApi(BLBL.GET_VIDEO_SUBTITLE, { bvid, cid: cid || 0, aid: aid || 0 }),
+      12000,
+      'get subtitle meta'
+    )
+    subtitleDebug.value.subtitleMeta = {
+      aid: subtitleMeta?.data?.aid,
+      bvid: subtitleMeta?.data?.bvid,
+      cid: subtitleMeta?.data?.cid,
+      subtitleCount: subtitleMeta?.data?.subtitle?.subtitles?.length || 0,
+    }
+    const metaCid = Number(subtitleMeta?.data?.cid || 0)
+    if (metaCid && metaCid !== Number(cid || 0))
+      console.warn('Subtitle meta cid mismatch:', { expectedCid: cid, metaCid })
+
+    const tracks = subtitleMeta?.data?.subtitle?.subtitles || []
+    const candidateTracks = sortSubtitleTracks(tracks)
+    subtitleDebug.value.selectedTrack = candidateTracks[0] || {}
+
+    if (!candidateTracks.length) {
+      subtitleError.value = '暂无字幕'
+      subtitleDebug.value.error = subtitleError.value
+      return
+    }
+    let lines = []
+    let lastTrackError = ''
+    for (const track of candidateTracks) {
+      const subtitleUrl = normalizeSubtitleUrl(track?.subtitle_url || track?.url || '')
+      if (!subtitleUrl)
+        continue
+      subtitleDebug.value.selectedTrack = track || {}
+      subtitleDebug.value.subtitleUrl = subtitleUrl
+      try {
+        const subtitleContent = await withTimeout(
+          invokeBiliApi(BLBL.GET_VIDEO_SUBTITLE_CONTENT, { url: subtitleUrl }),
+          12000,
+          'get subtitle content'
+        )
+        if (requestId !== subtitleRequestId.value)
+          return
+        if (!isTrackStillCurrent(boundTrack))
+          return
+        lines = parseSubtitleBody(subtitleContent)
+        if (lines.length)
+          break
+      } catch (trackError) {
+        lastTrackError = String(trackError?.message || trackError || 'track load error')
+      }
+    }
+
+    subtitleLines.value = lines
+    if (lines.length)
+      subtitleCache.set(cacheKey, lines)
+    subtitleDebug.value.lineCount = lines.length
+    if (!lines.length) {
+      subtitleError.value = '暂无字幕'
+      subtitleDebug.value.error = lastTrackError || subtitleError.value
+    }
+  } catch (error) {
+    console.error('Failed to fetch subtitles:', error)
+    if (requestId === subtitleRequestId.value)
+      subtitleError.value = '字幕加载失败'
+    subtitleDebug.value.error = String(error?.message || error || 'unknown error')
+  } finally {
+    if (requestId === subtitleRequestId.value)
+      subtitleLoading.value = false
+  }
+}
+
+const activeSubtitleIndex = computed(() => {
+  const current = Number(props.progress?.current || 0)
+  if (!subtitleLines.value.length)
+    return -1
+  return subtitleLines.value.findIndex(item => current >= item.from && current <= item.to)
+})
+
+const setLyricItemRef = (el, index) => {
+  if (!el)
+    return
+  lyricItemRefs.value[index] = el
+}
+
+const scrollActiveLyricIntoView = async () => {
+  const index = activeSubtitleIndex.value
+  if (index < 0)
+    return
+  await nextTick()
+  const container = lyricsScrollRef.value
+  const target = lyricItemRefs.value[index]
+  if (container && target) {
+    const top = Math.max(0, target.offsetTop - (container.clientHeight / 2) + (target.clientHeight / 2))
+    container.scrollTo({
+      top,
+      behavior: 'smooth',
+    })
+    return
+  }
+  if (target?.scrollIntoView) {
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }
+}
+
+const seekToSubtitle = (line) => {
+  const total = Number(props.progress?.total || 0)
+  if (!total || !line?.from)
+    return
+  const percent = Math.max(0, Math.min(1, line.from / total))
+  emit('seek', percent)
+}
 
 const updateThemeFromCover = async (imageUrl) => {
   if (!imageUrl)
@@ -47,78 +308,6 @@ const rgbToRgba = (rgb, alpha) => {
   return rgb
 }
 
-// 真实音频可视化
-const drawVisualization = () => {
-  if (!canvasRef.value || !props.show) return
-
-  const canvas = canvasRef.value
-  const ctx = canvas.getContext('2d')
-  const width = canvas.width
-  const height = canvas.height
-
-  ctx.clearRect(0, 0, width, height)
-
-  // 如果没有分析器，或者不在播放，使用简单的模拟动画保持画面些许活力
-  if (!store.analyser || !props.isPlaying) {
-    // 简单的呼吸效果
-    const time = Date.now() / 2000
-    const alpha = (Math.sin(time) * 0.5 + 0.5) * 0.1
-    ctx.fillStyle = rgbToRgba(themeColor.value, alpha)
-    ctx.fillRect(0, 0, width, height)
-  } else {
-    const bufferLength = store.analyser.frequencyBinCount
-    const dataArray = new Uint8Array(bufferLength)
-    store.analyser.getByteFrequencyData(dataArray)
-
-    // 绘制更加平滑柔和的波浪
-    ctx.beginPath()
-    ctx.moveTo(0, height)
-
-    // 我们只需要一部分频率数据（低中频），通常高频部分能量很少
-    const sliceWidth = width * 1.0 / (bufferLength * 0.6)
-    let x = 0
-
-    // 使用 Catmull-Rom 或者简单的控制点插值来获得平滑曲线
-    // 这里使用简单的三次贝塞尔曲线模拟
-
-    // 先收集点
-    const points = []
-    const limit = Math.floor(bufferLength * 0.6)
-    for (let i = 0; i < limit; i++) {
-      const v = dataArray[i] / 255.0
-      // 增加灵敏度并限制最大高度
-      const y = height - (v * height * 0.5)
-      points.push({ x: i * sliceWidth, y })
-    }
-
-    // 绘制曲线
-    if (points.length > 0) {
-      ctx.moveTo(points[0].x, points[0].y)
-
-      for (let i = 0; i < points.length - 1; i++) {
-        const xc = (points[i].x + points[i + 1].x) / 2
-        const yc = (points[i].y + points[i + 1].y) / 2
-        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc)
-      }
-      // 连接最后一个点
-      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y)
-    }
-
-    ctx.lineTo(width, height)
-    ctx.lineTo(0, height)
-    ctx.closePath()
-
-    const gradient = ctx.createLinearGradient(0, height, 0, height / 2)
-    gradient.addColorStop(0, rgbToRgba(themeColor.value, 0.4))
-    gradient.addColorStop(1, rgbToRgba(themeColor.value, 0))
-    ctx.fillStyle = gradient
-    ctx.fill()
-  }
-
-  if (props.show)
-    animationFrameId.value = requestAnimationFrame(drawVisualization)
-}
-
 // 音频控制
 const togglePlay = () => {
   emit('play')
@@ -132,33 +321,11 @@ const nextSong = () => {
   emit('next')
 }
 
-const cycleLoopMode = () => {
-  const modes = ['list', 'single', 'random']
-  const currentIndex = modes.indexOf(store.loopMode)
-  const nextIndex = (currentIndex + 1) % modes.length
-  store.loopMode = modes[nextIndex]
-}
-
 const changeProgress = (percent) => {
   if (!store.play?.id)
     return
   emit('seek', percent)
 }
-
-const handleVolumeChange = (value) => {
-  voice.value = value
-  emit('volume', value)
-}
-
-// 循环模式文字
-const loopModeText = computed(() => {
-  const modes = {
-    list: '列表循环',
-    single: '单曲循环',
-    random: '随机播放'
-  }
-  return modes[store.loopMode] || '列表循环'
-})
 
 // 监听显示状态
 watch(() => props.show, async (newVal) => {
@@ -166,44 +333,22 @@ watch(() => props.show, async (newVal) => {
     // 提取主题色
     if (store.play?.cover)
       await updateThemeFromCover(store.play.cover)
-
-    // 启动可视化
-    resizeCanvas()
-    animationFrameId.value = requestAnimationFrame(drawVisualization)
-  } else {
-    // 停止动画
-    if (animationFrameId.value) {
-      cancelAnimationFrame(animationFrameId.value)
-      animationFrameId.value = 0
-    }
+    await fetchSubtitles()
+    await scrollActiveLyricIntoView()
   }
 })
 
-// 监听歌曲变化
-watch(() => store.play?.id, async () => {
+// 监听播放标识变化（同一首歌切换 cid 分P 也需要重拉字幕）
+watch(() => [store.play?.bvid, store.play?.cid, store.play?.aid], async () => {
   if (props.show && store.play?.cover)
     await updateThemeFromCover(store.play.cover)
+  if (props.show)
+    await fetchSubtitles()
+  lyricItemRefs.value = []
 })
 
-// 调整 canvas 尺寸
-const resizeCanvas = () => {
-  if (canvasRef.value && containerRef.value) {
-    const container = containerRef.value
-    canvasRef.value.width = container.clientWidth
-    canvasRef.value.height = container.clientHeight
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('resize', resizeCanvas)
-  resizeCanvas()
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeCanvas)
-  if (animationFrameId.value) {
-    cancelAnimationFrame(animationFrameId.value)
-  }
+watch(() => activeSubtitleIndex.value, () => {
+  scrollActiveLyricIntoView()
 })
 
 const close = () => {
@@ -215,15 +360,14 @@ const close = () => {
   }
 }
 
-const openBilibili = () => {
-  const url = `https://www.bilibili.com/video/${store.play.bvid}`
-  window.open(url, '_blank')
-}
 </script>
 
 <template>
-  <Transition name="fullscreen-player">
-    <div v-if="show" ref="containerRef" class="fixed inset-0 z-[9999] flex flex-col overflow-hidden bg-[#1c1c1e]">
+  <Transition enter-active-class="transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]"
+    leave-active-class="transition-all duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
+    enter-from-class="opacity-0 translate-y-10 scale-[0.98]" enter-to-class="opacity-100 translate-y-0 scale-100"
+    leave-to-class="opacity-0 translate-y-10 scale-[0.98]">
+    <div v-if="show" class="fixed inset-0 z-[9999] flex flex-col overflow-hidden bg-[#1c1c1e]">
       <!-- 动态背景层 -->
       <div class="absolute inset-0 z-0">
         <!-- 主背景色 -->
@@ -245,486 +389,157 @@ const openBilibili = () => {
         <!-- <div class="absolute inset-0 opacity-[0.03]" style="background-image: url('data:image/svg+xml;base64,...')" /> -->
       </div>
 
-      <!-- Canvas 可视化层 (保持微妙) -->
-      <canvas ref="canvasRef"
-        class="absolute inset-0 w-full h-full opacity-10 mix-blend-screen pointer-events-none z-0" />
-
       <!-- 内容区域 -->
-      <div class="relative z-10 flex flex-col h-full backdrop-blur-[0px]">
+      <div class="relative z-10 flex h-full flex-col">
         <!-- 顶部栏 -->
-        <div class="top-bar flex items-center justify-between px-6 pt-12 pb-4"> <!-- 增加顶部 padding 适配刘海屏感觉 -->
-          <div
-            class="w-12 h-1 bg-white/20 rounded-full mx-auto absolute top-4 left-0 right-0 cursor-pointer hover:bg-white/40 transition-colors md:hidden"
-            @click="close"></div>
+        <div class="relative flex items-center justify-between px-6 pt-8 pb-3">
+          <div class="hidden" @click="close"></div>
 
-          <button @click="close"
-            class="fp-icon-btn">
-            <div class="i-mingcute:down-line text-xl" />
-          </button>
+          <div class="relative z-[3]">
+            <button @click="close"
+              class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-white/8 p-0 text-white/75 transition-all duration-200 hover:bg-white/14 hover:text-white">
+              <div class="i-mingcute:down-line text-xl" />
+            </button>
+          </div>
 
-          <div class="text-white/50 text-xs font-semibold tracking-widest uppercase">正在播放</div>
-
-          <button @click="openBilibili"
-            class="fp-icon-btn">
-            <div class="i-mingcute:more-1-fill text-xl" />
-          </button>
+          <div class="relative z-[3] flex items-center gap-3" />
         </div>
 
         <!-- 主布局容器 -->
         <div
-          class="fullscreen-layout flex-1 flex flex-col md:flex-row items-center md:justify-center gap-8 md:gap-24 overflow-y-auto custom-scrollbar relative">
+          class="relative mx-auto grid h-full w-full max-w-[1280px] min-h-0 grid-cols-[minmax(340px,460px)_minmax(360px,560px)] grid-rows-1 items-center gap-14 overflow-hidden px-8 pb-4">
+          <div class="flex min-h-0 justify-end overflow-hidden">
+            <div class="mx-auto flex h-full flex-col items-center justify-end gap-4">
+              <div class="w-[400px]  flex flex-col justify-end p-[14px_14px_12px]">
+                <div class="w-full mx-auto mb-3 flex justify-center">
+                  <div class="cover-core w-full h-full rounded-2xl overflow-hidden shadow-2xl relative"
+                    :style="{ boxShadow: `0 20px 50px -12px ${rgbToRgba(themeColor, 0.5)}` }">
+                    <img v-if="store.play?.cover" :src="store.play.cover" class="w-full" />
+                    <div v-else class="w-full h-full bg-neutral-800 flex items-center justify-center">
+                      <div class="i-mingcute:music-2-fill text-7xl text-neutral-700" />
+                    </div>
+                  </div>
+                </div>
 
-          <!-- 左侧/上方：封面 -->
-          <div
-            class="cover-shell w-full max-w-[360px] md:max-w-[48vh] aspect-square flex-shrink-0 relative group mt-4 md:mt-0">
-            <div
-              class="cover-core w-full h-full rounded-xl md:rounded-2xl overflow-hidden shadow-2xl relative transition-transform duration-500 ease-out"
-              :class="{ 'scale-90 opacity-80': !isPlaying, 'scale-100 opacity-100': isPlaying }"
-              :style="{ boxShadow: `0 20px 50px -12px ${rgbToRgba(themeColor, 0.5)}` }">
-              <img v-if="store.play?.cover" :src="store.play.cover" class="w-full h-full object-cover" />
-              <div v-else
-                class="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center">
-                <div class="i-mingcute:music-2-fill text-8xl text-neutral-700" />
+                <!-- 歌曲信息布局 (Apple Music 样式：左对齐标题，右侧更多按钮) -->
+                <div class="flex items-start justify-between mb-2">
+                  <div class="flex-1 pr-4 text-center overflow-hidden">
+                    <div class="mask-fade overflow-hidden whitespace-nowrap">
+                      <h1 class="text-lg font-bold text-white leading-tight mb-1 inline-block h-[26px]"
+                        :class="{ marquee: (store.play?.title?.length || 0) > 12 }" :title="store.play?.title">
+                        {{ store.play?.title || '暂无播放' }}
+                      </h1>
+                    </div>
+                    <div class="mask-fade overflow-hidden whitespace-nowrap">
+                      <p class="text-sm text-white/58 font-medium inline-block cursor-pointer hover:text-white/80 transition-colors h-[20px]"
+                        :class="{ marquee: (store.play?.author?.length || 0) > 20 }">
+                        {{ store.play?.author || '未知歌手' }}
+                        <span
+                          class="inline-block i-mingcute:right-line text-sm align-middle opacity-0 hover:opacity-100 ml-1"></span>
+                      </p>
+                    </div>
+                  </div>
+                  <!-- 收藏/更多操作 -->
+                  <!-- <button class="text-white/40 hover:text-primary active:scale-90 transition-all mt-1">
+                    <div class="i-mingcute:heart-line text-2xl" />
+                  </button> -->
+                </div>
+
+                <!-- 进度条区域 -->
+                <div class="w-full mb-4">
+                  <ProgressBar class="progress-thin" :percent="props.progress.percent" :current="props.progress.current"
+                    :total="props.progress.total" track-color="rgba(255,255,255,0.14)"
+                    fill-color="rgba(226,244,255,0.96)" time-color="rgba(235,245,255,0.62)" @seek="changeProgress" />
+                </div>
+
+                <!-- 播放控制 -->
+                <div class="mb-4 flex items-center justify-center gap-4">
+                  <button @click="prevSong"
+                    class="inline-flex h-[46px] w-[46px] items-center justify-center rounded-full border border-white/14 bg-white/8 text-white/75 transition-all duration-200 hover:bg-white/14 hover:text-white">
+                    <div class="i-mingcute:skip-previous-fill text-[30px]" />
+                  </button>
+                  <button @click="togglePlay"
+                    class="flex h-[60px] w-[60px] items-center justify-center rounded-full border-0 bg-white text-black shadow-[0_8px_24px_rgba(0,0,0,0.28)] transition-all hover:scale-105 active:scale-95">
+                    <div v-if="props.isPlaying" class="i-mingcute:pause-fill text-[30px]" />
+                    <div v-else class="i-mingcute:play-fill text-[30px] ml-0.5" />
+                  </button>
+                  <button @click="nextSong"
+                    class="inline-flex h-[46px] w-[46px] items-center justify-center rounded-full border border-white/14 bg-white/8 text-white/75 transition-all duration-200 hover:bg-white/14 hover:text-white">
+                    <div class="i-mingcute:skip-forward-fill text-[30px]" />
+                  </button>
+                </div>
+
               </div>
-            </div>
-
-            <!-- 超小屏控制补充 -->
-            <div class="tiny-controls">
-              <button @click="prevSong" class="tiny-btn" title="上一首">
-                <div class="i-mingcute:skip-previous-fill text-lg" />
-              </button>
-              <button @click="togglePlay" class="tiny-btn" title="播放/暂停">
-                <div v-if="props.isPlaying" class="i-mingcute:pause-fill text-lg" />
-                <div v-else class="i-mingcute:play-fill text-lg ml-0.5" />
-              </button>
-              <button @click="nextSong" class="tiny-btn" title="下一首">
-                <div class="i-mingcute:skip-forward-fill text-lg" />
-              </button>
-              <button @click="cycleLoopMode" class="tiny-btn" :title="loopModeText">
-                <div v-if="store.loopMode === 'list'" class="i-mingcute:repeat-line text-lg" />
-                <div v-else-if="store.loopMode === 'single'" class="i-mingcute:repeat-one-line text-lg" />
-                <div v-else class="i-mingcute:shuffle-line text-lg" />
-              </button>
-              <button @click="close" class="tiny-btn" title="关闭">
-                <div class="i-mingcute:down-line text-lg" />
-              </button>
             </div>
           </div>
-
-          <!-- 右侧/下方：信息与控制 -->
-          <div class="info-shell w-full max-w-[360px] md:max-w-[400px] flex flex-col justify-center flex-shrink-0">
-
-            <!-- 歌曲信息布局 (Apple Music 样式：左对齐标题，右侧更多按钮) -->
-            <div class="flex items-start justify-between mb-2">
-              <div class="flex-1 pr-4 text-left">
-                <h1 class="text-2xl md:text-3xl font-bold text-white leading-tight mb-1 line-clamp-2"
-                  :title="store.play?.title">
-                  {{ store.play?.title || '暂无播放' }}
-                </h1>
-                <p
-                  class="text-lg text-white/60 font-medium truncate cursor-pointer hover:text-white/80 transition-colors">
-                  {{ store.play?.author || '未知歌手' }}
-                  <span
-                    class="inline-block i-mingcute:right-line text-sm align-middle opacity-0 hover:opacity-100 ml-1"></span>
-                </p>
-              </div>
-              <!-- 收藏/更多操作 -->
-              <!-- <button class="text-white/40 hover:text-primary active:scale-90 transition-all mt-1">
-                <div class="i-mingcute:heart-line text-2xl" />
-              </button> -->
+          <!-- 字幕 -->
+          <div ref="lyricsScrollRef"
+            class="lyrics-scroll lyrics-vertical-fade h-[90vh] max-h-[90vh] w-full self-center overflow-y-auto px-8 py-5">
+            <div v-if="subtitleLoading" class="pt-[18vh] text-center text-sm text-white/45">
+              正在加载字幕...
             </div>
-
-            <!-- 进度条区域 -->
-            <div class="progress-section w-full mb-8">
-              <ProgressBar
-                :percent="props.progress.percent"
-                :current="props.progress.current"
-                :total="props.progress.total"
-                @seek="changeProgress"
-              />
+            <div v-else-if="subtitleError || !subtitleLines.length" class="pt-[18vh] text-center text-sm text-white/45">
+              {{ subtitleError || '暂无字幕' }}
             </div>
-
-            <!-- 播放控制 -->
-            <div class="playback-controls flex items-center justify-center gap-6 mb-8">
-              <!-- 循环模式 (放在左侧或者单独一排? AM放在底部，这里为了平衡放在两边) -->
-              <!-- 上一首 -->
-              <button @click="prevSong"
-                class="control-btn fp-control-btn">
-                <div class="i-mingcute:skip-previous-fill text-4xl" />
-              </button>
-
-              <!-- 播放/暂停 (中心大按钮) -->
-              <button @click="togglePlay"
-                class="play-btn fp-play-btn w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all hover:scale-105 active:scale-95">
-                <div v-if="props.isPlaying" class="i-mingcute:pause-fill text-4xl" />
-                <div v-else class="i-mingcute:play-fill text-4xl ml-1" />
-              </button>
-
-              <!-- 下一首 -->
-              <button @click="nextSong"
-                class="control-btn fp-control-btn">
-                <div class="i-mingcute:skip-forward-fill text-4xl" />
+            <div v-else class="mx-auto flex w-full max-w-[520px] flex-col items-start justify-start gap-3">
+              <button v-for="(line, index) in subtitleLines" :key="`${line.from}-${index}`"
+                :ref="el => setLyricItemRef(el, index)" type="button"
+                class="w-full overflow-hidden border-none bg-transparent px-0 py-[1px] text-left text-[20px] leading-[1.5] font-semibold text-ellipsis whitespace-nowrap transition-all duration-250 hover:text-white/45"
+                :class="{ 'text-white text-[27px] font-black scale-110': index === activeSubtitleIndex }"
+                @click="seekToSubtitle(line)">
+                {{ line.content }}
               </button>
             </div>
-
-
-            <!-- 底部辅助控制 (音量/模式) -->
-            <div class="aux-controls flex items-center justify-between gap-6 px-2">
-              <!-- 播放模式 -->
-              <button @click="cycleLoopMode"
-                class="fp-icon-btn fp-icon-btn--ghost"
-                :title="loopModeText">
-                <div class="relative">
-                  <div v-if="store.loopMode === 'list'" class="i-mingcute:repeat-line text-xl" />
-                  <div v-else-if="store.loopMode === 'single'" class="i-mingcute:repeat-one-line text-xl" />
-                  <div v-else class="i-mingcute:shuffle-line text-xl" />
-                  <!-- 只有单曲循环时显示小点 -->
-                  <div v-if="store.loopMode === 'single'"
-                    class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 bg-current rounded-full" />
-                </div>
-              </button>
-
-              <!-- 音量条 -->
-              <div class="flex items-center gap-3 flex-1 group/volume">
-                <div class="i-mingcute:volume-line text-sm text-white/40" />
-                <Slider class="apple-slider-sm flex-1 opacity-60 group-hover/volume:opacity-100 transition-opacity"
-                  :value="voice" @update:value="val => (voice = val)" @change="handleVolumeChange" />
-                <div class="i-mingcute:volume-fill text-sm text-white/40" />
-              </div>
-
-              <!-- 歌词/列表入口 (占位) -->
-              <!-- <button class="text-white/40 hover:text-white/80 transition-colors p-2 rounded-lg hover:bg-white/5">
-                <div class="i-mingcute:list-check-line text-xl" />
-              </button> -->
-            </div>
-
           </div>
         </div>
+
       </div>
     </div>
   </Transition>
 </template>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-.custom-scrollbar {
+.lyrics-scroll {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
-.tiny-controls {
-  display: none;
+.mask-fade {
+  mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
 }
 
-.fp-icon-btn,
-.fp-control-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.75);
-  background: transparent;
-  border: none;
-  padding: 0;
-  transition: color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+.marquee {
+  animation: marquee-bounce 8s linear infinite alternate;
 }
 
-.fp-icon-btn:hover,
-.fp-control-btn:hover {
-  color: #fff;
-  opacity: 0.95;
+.lyrics-vertical-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8%, #000 92%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 8%, #000 92%, transparent 100%);
 }
 
-.fp-play-btn {
-  background: #fff;
-  color: #000;
-  box-shadow: none;
-}
-
-/* 覆盖 Slider 样式以适配 Apple 风格 */
-:deep(.apple-slider .slider-track) {
-  height: 4px;
-  background-color: rgba(255, 255, 255, 0.15);
-  transition: height 0.2s ease;
-}
-
-/* Hover 放大交互 */
-:deep(.apple-slider:hover .slider-track) {
-  height: 6px;
-}
-
-:deep(.apple-slider .slider-fill) {
-  background-color: rgba(255, 255, 255, 0.8);
-}
-
-:deep(.apple-slider:hover .slider-fill) {
-  background-color: #fff;
-}
-
-:deep(.apple-slider .slider-thumb) {
-  width: 8px;
-  /* 默认隐藏或很小 */
-  height: 8px;
-  transform: translate(-50%, -50%) scale(0);
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  opacity: 0;
-  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
-}
-
-:deep(.apple-slider:hover .slider-thumb),
-:deep(.apple-slider .slider-input:active ~ .slider-thumb) {
-  transform: translate(-50%, -50%) scale(2.5);
-  /* 放大 */
-  opacity: 1;
-}
-
-/* 音量条样式更细 */
-:deep(.apple-slider-sm .slider-track) {
+.progress-thin :deep(.slider-track) {
   height: 3px;
-  background-color: rgba(255, 255, 255, 0.1);
 }
 
-:deep(.apple-slider-sm .slider-fill) {
-  background-color: rgba(255, 255, 255, 0.6);
-}
-
-:deep(.apple-slider-sm .slider-thumb) {
-  width: 12px;
+.progress-thin :deep(.slider-container) {
   height: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  min-height: 12px;
 }
 
-.fullscreen-player-enter-active {
-  transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-}
+@keyframes marquee-bounce {
 
-.fullscreen-player-leave-active {
-  transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.fullscreen-player-enter-from {
-  opacity: 0;
-  transform: translateY(40px) scale(0.98);
-}
-
-.fullscreen-player-enter-to {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.fullscreen-player-leave-to {
-  opacity: 0;
-  transform: translateY(40px) scale(0.98);
-}
-
-/* Layout tuning for small windows */
-@media (max-width: 900px) {
-  .fullscreen-layout {
-    gap: 20px;
+  0%,
+  25% {
+    transform: translateX(0);
   }
 
-  .cover-shell {
-    max-width: 320px;
-  }
-
-  .info-shell {
-    max-width: 380px;
+  75%,
+  100% {
+    transform: translateX(calc(-100% + 240px));
   }
 }
 
-@media (max-width: 640px) {
-  .fullscreen-layout {
-    gap: 16px;
-  }
-
-  .cover-shell {
-    max-width: 240px;
-  }
-
-  .info-shell {
-    max-width: 260px;
-  }
-
-  .play-btn {
-    width: 52px;
-    height: 52px;
-  }
-
-  .play-btn .i-mingcute:pause-fill,
-  .play-btn .i-mingcute:play-fill {
-    font-size: 22px;
-  }
-
-  .control-btn .i-mingcute:skip-previous-fill,
-  .control-btn .i-mingcute:skip-forward-fill {
-    font-size: 22px;
-  }
-
-  .aux-controls {
-    gap: 12px;
-    padding-left: 0;
-    padding-right: 0;
-  }
-}
-
-@media (max-width: 450px) {
-  .fullscreen-layout {
-    gap: 12px;
-    width: 100vw;
-    height: 100vh;
-  }
-
-  .cover-shell {
-    max-width: none;
-    width: 100%;
-    height: 100%;
-    aspect-ratio: auto;
-    margin-top: 0;
-    position: fixed;
-    inset: 0;
-    border-radius: 0;
-  }
-
-  .info-shell {
-    display: none;
-  }
-
-  .play-btn {
-    width: 46px;
-    height: 46px;
-  }
-
-  .play-btn .i-mingcute:pause-fill,
-  .play-btn .i-mingcute:play-fill {
-    font-size: 20px;
-  }
-
-  .control-btn .i-mingcute:skip-previous-fill,
-  .control-btn .i-mingcute:skip-forward-fill {
-    font-size: 20px;
-  }
-
-  .aux-controls {
-    display: none;
-  }
-
-  .apple-slider {
-    min-width: 0;
-  }
-
-  .top-bar {
-    display: none;
-  }
-
-  .progress-section {
-    display: none;
-  }
-
-  .fullscreen-layout {
-    overflow: hidden;
-  }
-
-  .playback-controls {
-    position: absolute;
-    left: 50%;
-    bottom: 18px;
-    transform: translateX(-50%);
-    margin-bottom: 0;
-    gap: 16px;
-    width: auto;
-  }
-
-  .progress-section {
-    display: none;
-  }
-
-  .top-bar {
-    display: none;
-  }
-
-  .playback-controls .control-btn {
-    background: rgba(0, 0, 0, 0.35);
-    border-radius: 999px;
-    padding: 6px;
-  }
-
-  .tiny-controls {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    gap: 10px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-  }
-
-  .tiny-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.4);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .cover-shell:hover .tiny-controls {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .cover-core {
-    border-radius: 0;
-    width: 100%;
-    height: 100%;
-    box-shadow: none;
-    transform: none;
-    opacity: 1;
-  }
-}
-
-/* Layout tuning for large screens */
-@media (min-width: 1200px) {
-  .fullscreen-layout {
-    gap: 96px;
-  }
-
-  .cover-shell {
-    max-width: 52vh;
-  }
-
-  .info-shell {
-    max-width: 460px;
-  }
-}
-
-@media (min-width: 1600px) {
-  .fullscreen-layout {
-    gap: 120px;
-  }
-
-  .cover-shell {
-    max-width: 58vh;
-  }
-
-  .info-shell {
-    max-width: 520px;
-  }
-
-  .cover-core::after {
-    content: "";
-    position: absolute;
-    inset: -12px;
-    border-radius: 24px;
-    background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18), transparent 55%);
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
-    pointer-events: none;
-  }
+.lyrics-scroll::-webkit-scrollbar {
+  display: none;
 }
 </style>

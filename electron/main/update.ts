@@ -16,12 +16,27 @@ autoUpdater.autoInstallOnAppQuit = true
 
 let currentUpdateInfo: any = null
 let downloadedDmgPath: string | null = null
+let checkingForUpdatesPromise: Promise<any> | null = null
 
 export function setupUpdateHandlers() {
+  // 降噪：屏蔽 autoUpdater 的 info 级别日志（如 "Checking for update"）
+  autoUpdater.logger = {
+    info: () => { },
+    warn: (...args: any[]) => console.warn(...args),
+    error: (...args: any[]) => console.error(...args),
+    debug: () => { },
+  } as any
+
   ipcMain.handle('check-for-updates', async () => {
     try {
-      // 检查更新，但不自动下载
-      const result = await autoUpdater.checkForUpdates()
+      // 检查更新去重：并发请求复用同一个 Promise，避免重复触发
+      if (!checkingForUpdatesPromise) {
+        checkingForUpdatesPromise = autoUpdater.checkForUpdates()
+          .finally(() => {
+            checkingForUpdatesPromise = null
+          })
+      }
+      const result = await checkingForUpdatesPromise
 
       if (!result) {
         return {

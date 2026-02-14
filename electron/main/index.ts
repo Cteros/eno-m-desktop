@@ -11,6 +11,31 @@ import { generateQR, pollQR, fetchUserInfo } from '../bili/login'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+function setupNoiseFilters() {
+  const noisePatterns = [
+    "Request Autofill.enable failed. {\"code\":-32601,\"message\":\"'Autofill.enable' wasn't found\"}",
+    "Request Autofill.setAddresses failed. {\"code\":-32601,\"message\":\"'Autofill.setAddresses' wasn't found\"}",
+    'SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50',
+  ]
+
+  const rawStderrWrite = process.stderr.write.bind(process.stderr)
+  process.stderr.write = ((chunk: any, encoding?: any, cb?: any) => {
+    try {
+      const text = typeof chunk === 'string' ? chunk : chunk?.toString?.(encoding || 'utf8') || ''
+      if (text && noisePatterns.some(pattern => text.includes(pattern))) {
+        if (typeof cb === 'function')
+          cb()
+        return true
+      }
+    } catch {
+      // ignore
+    }
+    return rawStderrWrite(chunk, encoding, cb)
+  }) as typeof process.stderr.write
+}
+
+setupNoiseFilters()
+
 // 注册协议
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
@@ -193,8 +218,8 @@ async function createWindow() {
     icon: path.join(process.env.VITE_PUBLIC, 'download.png'),
     width: 1200,
     height: 800,
-    minWidth: 400,
-    minHeight: 400,
+    minWidth: 960,
+    minHeight: 640,
     titleBarStyle: 'hidden',
     trafficLightPosition: { x: 12, y: 12 },
     vibrancy: 'fullscreen-ui', // macOS 毛玻璃效果
@@ -239,8 +264,8 @@ app.whenReady().then(() => {
   ipcMain.handle('set-window-size', async (_event, size: { width: number; height: number }) => {
     if (!win || win.isDestroyed())
       return { success: false }
-    const width = Math.max(200, Math.floor(size?.width || 960))
-    const height = Math.max(400, Math.floor(size?.height || 640))
+    const width = Math.max(960, Math.floor(size?.width || 960))
+    const height = Math.max(640, Math.floor(size?.height || 640))
     win.setSize(width, height, true)
     win.center()
     return { success: true }

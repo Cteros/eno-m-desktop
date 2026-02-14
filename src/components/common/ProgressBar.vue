@@ -1,5 +1,5 @@
 <template>
-  <div class="progress-bar">
+  <div class="progress-bar" :style="barStyle">
     <span v-if="showTime" class="progress-bar__time progress-bar__time--left">{{ timeDisplay.current }}</span>
     <Slider
       class="progress-bar__slider"
@@ -22,6 +22,9 @@ const props = defineProps({
   total: { type: Number, required: true },
   disabled: { type: Boolean, default: false },
   showTime: { type: Boolean, default: true },
+  trackColor: { type: String, default: 'rgba(255, 255, 255, 0.22)' },
+  fillColor: { type: String, default: 'rgba(255, 255, 255, 0.9)' },
+  timeColor: { type: String, default: 'rgba(255, 255, 255, 0.7)' },
 })
 
 const emit = defineEmits(['seek', 'dragging'])
@@ -56,6 +59,12 @@ const displayPercent = computed(() => {
     return pendingSeek.value
   return clamp(Math.round(props.percent * 100))
 })
+
+const barStyle = computed(() => ({
+  '--pb-track-color': props.trackColor,
+  '--pb-fill-color': props.fillColor,
+  '--pb-time-color': props.timeColor,
+}))
 
 function clamp(value: number) {
   return Math.max(0, Math.min(100, value))
@@ -102,7 +111,7 @@ function formatTime(seconds: number) {
 .progress-bar__time {
   min-width: 40px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--pb-time-color);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
@@ -113,5 +122,14 @@ function formatTime(seconds: number) {
 .progress-bar__slider {
   flex: 1;
   height: 4px;
+}
+
+.progress-bar :deep(.slider-track) {
+  background: var(--pb-track-color);
+}
+
+.progress-bar :deep(.slider-fill) {
+  background: var(--pb-fill-color);
+  opacity: 1;
 }
 </style>

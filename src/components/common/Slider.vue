@@ -51,7 +51,7 @@ function onTrackClick(e: MouseEvent) {
   position: relative;
   width: 100%;
   height: 6px;
-  background: #4d4d4d;
+  background: var(--slider-track-color, #4d4d4d);
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -62,8 +62,8 @@ function onTrackClick(e: MouseEvent) {
   top: 0;
   left: 0;
   height: 100%;
-  background: #ffffff;
-  opacity: 0.8;
+  background: var(--slider-fill-color, #ffffff);
+  opacity: var(--slider-fill-opacity, 0.8);
   border-radius: 999px;
   pointer-events: none;
   transition: background 0.2s;
@@ -75,7 +75,7 @@ function onTrackClick(e: MouseEvent) {
   transform: translate(-50%, -50%);
   width: 14px;
   height: 14px;
-  background: #fff;
+  background: var(--slider-thumb-color, #fff);
   /* border: 2px solid #1db954; */
   border-radius: 50%;
   box-shadow: 0 0 4px #0003;
