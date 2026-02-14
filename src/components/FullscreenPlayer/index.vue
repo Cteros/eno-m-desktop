@@ -29,6 +29,7 @@ const subtitleLines = ref([])
 const subtitleLoading = ref(false)
 const subtitleError = ref('')
 const subtitleCache = new Map()
+const subtitleTrackPreference = new Map()
 const subtitleRequestId = ref(0)
 const lyricItemRefs = ref([])
 const lyricsScrollRef = ref(null)
@@ -64,13 +65,33 @@ const sortSubtitleTracks = (subtitles) => {
     return aiStatus === 1 || aiType > 0 || /ai|智能|自动/i.test(text)
   }
 
-  const zhAi = subtitles.filter(track => isAi(track) && isZh(track))
-  const ai = subtitles.filter(track => isAi(track) && !isZh(track))
-  const zh = subtitles.filter(track => !isAi(track) && isZh(track))
-  const normal = subtitles.filter(track => !isAi(track) && !isZh(track))
+  const getWeight = (track) => {
+    if (isAi(track) && isZh(track))
+      return 0
+    if (isAi(track))
+      return 1
+    if (isZh(track))
+      return 2
+    return 3
+  }
 
-  // 优先中文 AI，其次任意 AI，再回退普通中文字幕和其他字幕
-  return [...zhAi, ...ai, ...zh, ...normal]
+  const getStableId = (track) => String(
+    track?.id
+    || track?.id_str
+    || track?.subtitle_url
+    || track?.url
+    || `${track?.lan || ''}:${track?.lan_doc || ''}`
+  )
+
+  // 固定排序，避免后端返回顺序波动导致同视频命中不同轨道
+  return subtitles
+    .slice()
+    .sort((a, b) => {
+      const w = getWeight(a) - getWeight(b)
+      if (w !== 0)
+        return w
+      return getStableId(a).localeCompare(getStableId(b))
+    })
 }
 
 const parseSubtitleBody = (data) => {
@@ -198,6 +219,22 @@ const fetchSubtitles = async () => {
 
     const tracks = subtitleMeta?.data?.subtitle?.subtitles || []
     const candidateTracks = sortSubtitleTracks(tracks)
+    const preferredKey = `${bvid}:${cid || 0}`
+    const preferredId = subtitleTrackPreference.get(preferredKey)
+    const getStableId = (track) => String(
+      track?.id
+      || track?.id_str
+      || track?.subtitle_url
+      || track?.url
+      || `${track?.lan || ''}:${track?.lan_doc || ''}`
+    )
+    if (preferredId) {
+      const preferredTrack = candidateTracks.find(track => getStableId(track) === preferredId)
+      if (preferredTrack) {
+        const restTracks = candidateTracks.filter(track => getStableId(track) !== preferredId)
+        candidateTracks.splice(0, candidateTracks.length, preferredTrack, ...restTracks)
+      }
+    }
     subtitleDebug.value.selectedTrack = candidateTracks[0] || {}
 
     if (!candidateTracks.length) {
@@ -224,8 +261,10 @@ const fetchSubtitles = async () => {
         if (!isTrackStillCurrent(boundTrack))
           return
         lines = parseSubtitleBody(subtitleContent)
-        if (lines.length)
+        if (lines.length) {
+          subtitleTrackPreference.set(preferredKey, getStableId(track))
           break
+        }
       } catch (trackError) {
         lastTrackError = String(trackError?.message || trackError || 'track load error')
       }
