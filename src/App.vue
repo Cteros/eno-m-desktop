@@ -22,7 +22,7 @@ const uiStore = useUIStore()
 const { getColor } = useImageThemeColor()
 const route = useRoute()
 const isMiniPlayer = computed(() => route.name === 'miniplayer')
-console.log('App version: 3.2.25')
+console.log('App version: 3.2.26')
 
 // 播放列表显隐状态（可以由Play组件或全局控制）
 const showPlaylist = ref(false)
