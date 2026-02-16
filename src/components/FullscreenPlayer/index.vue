@@ -1,9 +1,8 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useBlblStore } from '../../blbl/store'
 import { ProgressBar } from '../common'
 import { useImageThemeColor } from '@/composables/useImageThemeColor'
-import { invokeBiliApi, BLBL } from '~/api/bili'
 
 const props = defineProps({
   show: {
@@ -28,261 +27,94 @@ const { getColor } = useImageThemeColor()
 const subtitleLines = ref([])
 const subtitleLoading = ref(false)
 const subtitleError = ref('')
-const subtitleCache = new Map()
-const subtitleTrackPreference = new Map()
 const subtitleRequestId = ref(0)
 const lyricItemRefs = ref([])
 const lyricsScrollRef = ref(null)
-const subtitleDebug = ref({
-  fetchedAt: '',
-  bvid: '',
-  storePlaySnapshot: {},
-  videoInfo: {},
-  subtitleMeta: {},
-  selectedTrack: {},
-  subtitleUrl: '',
-  lineCount: 0,
-  cacheHit: false,
-  error: '',
-})
+const subtitleLogLines = ref([])
+const subtitleLogSongId = ref('')
+const asrModel = 'large-v3'
 
-const normalizeSubtitleUrl = (url) => {
-  if (!url)
-    return ''
-  if (url.startsWith('//'))
-    return `https:${url}`
-  return url
+const getCurrentAudioUrl = () => {
+  const playUrl = String(store.play?.url || '')
+  if (playUrl)
+    return playUrl
+  const howlSrc = String(store?.howl?._src || '')
+  if (howlSrc)
+    return howlSrc
+  const soundSrc = String(store?.howl?._sounds?.[0]?._src || '')
+  return soundSrc
 }
 
-const sortSubtitleTracks = (subtitles) => {
-  if (!Array.isArray(subtitles) || !subtitles.length)
+const parseSubtitleRows = (rows) => {
+  if (!Array.isArray(rows))
     return []
-  const isZh = (track) => /zh|中文|汉语|国语/i.test(`${track?.lan || ''} ${track?.lan_doc || ''}`)
-  const isAi = (track) => {
-    const aiStatus = Number(track?.ai_status || 0)
-    const aiType = Number(track?.ai_type || 0)
-    const text = `${track?.lan_doc || ''} ${track?.lan || ''}`
-    return aiStatus === 1 || aiType > 0 || /ai|智能|自动/i.test(text)
-  }
-
-  const getWeight = (track) => {
-    if (isAi(track) && isZh(track))
-      return 0
-    if (isAi(track))
-      return 1
-    if (isZh(track))
-      return 2
-    return 3
-  }
-
-  const getStableId = (track) => String(
-    track?.id
-    || track?.id_str
-    || track?.subtitle_url
-    || track?.url
-    || `${track?.lan || ''}:${track?.lan_doc || ''}`
-  )
-
-  // 固定排序，避免后端返回顺序波动导致同视频命中不同轨道
-  return subtitles
-    .slice()
-    .sort((a, b) => {
-      const w = getWeight(a) - getWeight(b)
-      if (w !== 0)
-        return w
-      return getStableId(a).localeCompare(getStableId(b))
+  return rows
+    .map((item) => {
+      const from = Number(item?.from ?? item?.start ?? 0)
+      const to = Number(item?.to ?? item?.end ?? 0)
+      const content = String(item?.content ?? item?.text ?? '').trim()
+      return { from, to, content }
     })
-}
-
-const parseSubtitleBody = (data) => {
-  const body = data?.body
-  if (!Array.isArray(body))
-    return []
-  return body
-    .map(item => ({
-      from: Number(item?.from || 0),
-      to: Number(item?.to || 0),
-      content: String(item?.content || '').trim(),
-    }))
     .filter(item => item.content && item.to > item.from)
 }
 
-const isTrackStillCurrent = (target) => {
-  const currentBvid = String(store.play?.bvid || '')
-  const currentCid = Number(store.play?.cid || 0)
-  // 当当前播放未携带 cid 时，仅按 bvid 绑定，避免误判为“已切歌”
-  return currentBvid === String(target.bvid || '') && (!currentCid || currentCid === Number(target.cid || 0))
+const appendSubtitleLog = (line) => {
+  const text = String(line || '').trim()
+  if (!text)
+    return
+  subtitleLogLines.value.push(text)
+  if (subtitleLogLines.value.length > 120)
+    subtitleLogLines.value = subtitleLogLines.value.slice(-120)
 }
 
-const withTimeout = (promise, ms = 12000, label = 'request') => {
-  let timer = 0
-  const timeoutPromise = new Promise((_, reject) => {
-    timer = window.setTimeout(() => reject(new Error(`${label} timeout`)), ms)
-  })
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timer)
-      window.clearTimeout(timer)
-  })
-}
-
-const fetchSubtitles = async () => {
-  const bvid = store.play?.bvid
-  let cid = Number(store.play?.cid || 0)
-  let aid = store.play?.aid
-  if (!bvid) {
-    subtitleLines.value = []
+const fetchSubtitles = async (forceRetranscribe = false) => {
+  const requestId = ++subtitleRequestId.value
+  subtitleLines.value = []
+  subtitleLoading.value = true
+  subtitleError.value = ''
+  const songId = String(store.play?.id || store.play?.bvid || store.play?.cid || '')
+  const audioUrl = getCurrentAudioUrl()
+  subtitleLogSongId.value = songId
+  subtitleLogLines.value = []
+  appendSubtitleLog(`start song=${songId || 'unknown'} model=${asrModel} mode=${forceRetranscribe ? 'force' : 'cache-only'}`)
+  if (!songId || !audioUrl) {
+    subtitleError.value = '当前歌曲缺少可转写音频链接'
+    appendSubtitleLog('missing audio url')
     subtitleLoading.value = false
-    subtitleError.value = '暂无字幕'
-    subtitleDebug.value = {
-      fetchedAt: new Date().toISOString(),
-      bvid: '',
-      storePlaySnapshot: { ...(store.play || {}) },
-      videoInfo: {},
-      subtitleMeta: {},
-      selectedTrack: {},
-      subtitleUrl: '',
-      lineCount: 0,
-      cacheHit: false,
-      error: subtitleError.value,
-    }
     return
   }
 
-  const requestId = ++subtitleRequestId.value
-  subtitleLoading.value = true
-  subtitleError.value = ''
-  subtitleLines.value = []
-  subtitleDebug.value = {
-    fetchedAt: new Date().toISOString(),
-    bvid: bvid || '',
-    storePlaySnapshot: { ...(store.play || {}) },
-    videoInfo: {},
-    subtitleMeta: {},
-    selectedTrack: {},
-    subtitleUrl: '',
-    lineCount: 0,
-    cacheHit: false,
-    error: '',
-  }
-
   try {
-    // 先拉视频信息，确保字幕请求参数绑定到当前播放项
-    const info = await withTimeout(
-      invokeBiliApi(BLBL.GET_VIDEO_INFO, { bvid }),
-      12000,
-      'get video info'
-    )
-    const pages = Array.isArray(info?.data?.pages) ? info.data.pages : []
-    subtitleDebug.value.videoInfo = {
-      aid: info?.data?.aid,
-      cid: info?.data?.cid,
-      pages: pages.map(page => ({
-        cid: page?.cid,
-        page: page?.page,
-        part: page?.part,
-      })),
-    }
-    const latestAid = info?.data?.aid
-    const latestCid = Number(info?.data?.cid || pages?.[0]?.cid || 0)
-    if (!cid)
-      cid = latestCid
-    else if (pages.length && !pages.some(page => Number(page?.cid || 0) === cid))
-      cid = latestCid
-    aid = latestAid || aid
-
-    const cacheKey = `${bvid}:${cid || 0}`
-    const boundTrack = { bvid: String(bvid), cid: Number(cid || 0) }
-
-    if (subtitleCache.has(cacheKey)) {
-      if (!isTrackStillCurrent(boundTrack))
-        return
-      subtitleLines.value = subtitleCache.get(cacheKey)
-      subtitleDebug.value.cacheHit = true
-      subtitleDebug.value.lineCount = subtitleLines.value.length
+    // @ts-ignore
+    const ipcRenderer = window?.ipcRenderer
+    if (!ipcRenderer?.invoke) {
+      subtitleError.value = '本地字幕能力不可用'
+      appendSubtitleLog('ipc unavailable')
       return
     }
-
-    const subtitleMeta = await withTimeout(
-      invokeBiliApi(BLBL.GET_VIDEO_SUBTITLE, { bvid, cid: cid || 0, aid: aid || 0 }),
-      12000,
-      'get subtitle meta'
-    )
-    subtitleDebug.value.subtitleMeta = {
-      aid: subtitleMeta?.data?.aid,
-      bvid: subtitleMeta?.data?.bvid,
-      cid: subtitleMeta?.data?.cid,
-      subtitleCount: subtitleMeta?.data?.subtitle?.subtitles?.length || 0,
-    }
-    const metaCid = Number(subtitleMeta?.data?.cid || 0)
-    if (metaCid && metaCid !== Number(cid || 0))
-      console.warn('Subtitle meta cid mismatch:', { expectedCid: cid, metaCid })
-
-    const tracks = subtitleMeta?.data?.subtitle?.subtitles || []
-    const candidateTracks = sortSubtitleTracks(tracks)
-    const preferredKey = `${bvid}:${cid || 0}`
-    const preferredId = subtitleTrackPreference.get(preferredKey)
-    const getStableId = (track) => String(
-      track?.id
-      || track?.id_str
-      || track?.subtitle_url
-      || track?.url
-      || `${track?.lan || ''}:${track?.lan_doc || ''}`
-    )
-    if (preferredId) {
-      const preferredTrack = candidateTracks.find(track => getStableId(track) === preferredId)
-      if (preferredTrack) {
-        const restTracks = candidateTracks.filter(track => getStableId(track) !== preferredId)
-        candidateTracks.splice(0, candidateTracks.length, preferredTrack, ...restTracks)
-      }
-    }
-    subtitleDebug.value.selectedTrack = candidateTracks[0] || {}
-
-    if (!candidateTracks.length) {
-      subtitleError.value = '暂无字幕'
-      subtitleDebug.value.error = subtitleError.value
+    const result = await ipcRenderer.invoke('subtitle-ai-get-by-song-id', {
+      songId,
+      audioUrl,
+      language: 'zh',
+      model: asrModel,
+      maxCache: 100,
+      cacheOnly: !forceRetranscribe,
+      forceRetranscribe,
+    })
+    if (requestId !== subtitleRequestId.value)
+      return
+    if (!result?.success) {
+      if (String(result?.error || '') === 'cache_miss' && !forceRetranscribe)
+        subtitleError.value = '暂无本地字幕缓存，点击「重试」开始转写'
+      else
+        subtitleError.value = String(result?.error || '本地转写失败')
+      appendSubtitleLog(`failed: ${subtitleError.value}`)
       return
     }
-    let lines = []
-    let lastTrackError = ''
-    for (const track of candidateTracks) {
-      const subtitleUrl = normalizeSubtitleUrl(track?.subtitle_url || track?.url || '')
-      if (!subtitleUrl)
-        continue
-      subtitleDebug.value.selectedTrack = track || {}
-      subtitleDebug.value.subtitleUrl = subtitleUrl
-      try {
-        const subtitleContent = await withTimeout(
-          invokeBiliApi(BLBL.GET_VIDEO_SUBTITLE_CONTENT, { url: subtitleUrl }),
-          12000,
-          'get subtitle content'
-        )
-        if (requestId !== subtitleRequestId.value)
-          return
-        if (!isTrackStillCurrent(boundTrack))
-          return
-        lines = parseSubtitleBody(subtitleContent)
-        if (lines.length) {
-          subtitleTrackPreference.set(preferredKey, getStableId(track))
-          break
-        }
-      } catch (trackError) {
-        lastTrackError = String(trackError?.message || trackError || 'track load error')
-      }
-    }
-
-    subtitleLines.value = lines
-    if (lines.length)
-      subtitleCache.set(cacheKey, lines)
-    subtitleDebug.value.lineCount = lines.length
-    if (!lines.length) {
+    subtitleLines.value = parseSubtitleRows(result?.lines)
+    appendSubtitleLog(`done lines=${subtitleLines.value.length}`)
+    if (!subtitleLines.value.length)
       subtitleError.value = '暂无字幕'
-      subtitleDebug.value.error = lastTrackError || subtitleError.value
-    }
-  } catch (error) {
-    console.error('Failed to fetch subtitles:', error)
-    if (requestId === subtitleRequestId.value)
-      subtitleError.value = '字幕加载失败'
-    subtitleDebug.value.error = String(error?.message || error || 'unknown error')
   } finally {
     if (requestId === subtitleRequestId.value)
       subtitleLoading.value = false
@@ -372,7 +204,7 @@ watch(() => props.show, async (newVal) => {
     // 提取主题色
     if (store.play?.cover)
       await updateThemeFromCover(store.play.cover)
-    await fetchSubtitles()
+    await fetchSubtitles(false)
     await scrollActiveLyricIntoView()
   }
 })
@@ -382,12 +214,31 @@ watch(() => [store.play?.bvid, store.play?.cid, store.play?.aid], async () => {
   if (props.show && store.play?.cover)
     await updateThemeFromCover(store.play.cover)
   if (props.show)
-    await fetchSubtitles()
+    await fetchSubtitles(false)
   lyricItemRefs.value = []
 })
 
 watch(() => activeSubtitleIndex.value, () => {
   scrollActiveLyricIntoView()
+})
+
+const asrLogListener = (_event, payload) => {
+  const targetSongId = String(payload?.songId || '')
+  if (!targetSongId || targetSongId !== subtitleLogSongId.value)
+    return
+  appendSubtitleLog(payload?.line)
+}
+
+onMounted(() => {
+  // @ts-ignore
+  const ipcRenderer = window?.ipcRenderer
+  ipcRenderer?.on?.('asr-log-line', asrLogListener)
+})
+
+onBeforeUnmount(() => {
+  // @ts-ignore
+  const ipcRenderer = window?.ipcRenderer
+  ipcRenderer?.off?.('asr-log-line', asrLogListener)
 })
 
 const close = () => {
@@ -528,6 +379,25 @@ const close = () => {
                 @click="seekToSubtitle(line)">
                 {{ line.content }}
               </button>
+            </div>
+            <div v-if="subtitleLogLines.length"
+              class="mt-6 w-full rounded-lg border border-white/10 bg-black/25 p-3 text-left text-[12px] leading-5 text-white/60">
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <div class="text-[11px] text-white/40">
+                  转写日志
+                </div>
+                <div class="flex items-center gap-2">
+                  <button type="button" class="rounded border border-white/15 bg-white/10 px-2 py-1 text-[11px] text-white/80"
+                    :disabled="subtitleLoading" @click="() => fetchSubtitles(true)">
+                    重新生成
+                  </button>
+                </div>
+              </div>
+              <div class="max-h-[160px] overflow-y-auto whitespace-pre-wrap break-all">
+                <div v-for="(line, idx) in subtitleLogLines" :key="`log-${idx}`">
+                  {{ line }}
+                </div>
+              </div>
             </div>
           </div>
         </div>

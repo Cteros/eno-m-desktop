@@ -12,6 +12,15 @@
     "dist-electron",
     "!**/.DS_Store"
   ],
+  "extraResources": [
+    {
+      "from": "bin/asr",
+      "to": "asr",
+      "filter": [
+        "**/*"
+      ]
+    }
+  ],
   "publish": {
     "provider": "github",
     "owner": "cloudflypeng",
@@ -70,4 +79,3 @@
     "artifactName": "${productName}-Linux-${version}.${ext}"
   }
 }
-

@@ -134,40 +134,7 @@ function initMusic() {
     mute: false,
     xhrWithCredentials: false,
     format: ['m4s', 'mp3', 'aac'],
-    onload: () => {
-      // 音频加载完成后，设置crossOrigin
-      const audioNode = store.howl._sounds[0]?._node
-      if (audioNode) {
-        audioNode.crossOrigin = 'anonymous'
-
-        // 初始化音频可视化连接
-        try {
-          if (!store.audioContext) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext
-            store.audioContext = new AudioContext()
-          }
-
-          if (!store.analyser) {
-            store.analyser = store.audioContext.createAnalyser()
-            store.analyser.fftSize = 256
-          }
-
-          // 避免重复连接同一个 audio 元素
-          if (!audioNode._isConnectedToEno) {
-            const source = store.audioContext.createMediaElementSource(audioNode)
-            source.connect(store.analyser)
-            store.analyser.connect(store.audioContext.destination)
-            audioNode._isConnectedToEno = true
-          }
-        } catch (e) {
-          console.error('Audio Context Error:', e)
-        }
-      }
-    },
     onplay: () => {
-      if (store.audioContext && store.audioContext.state === 'suspended') {
-        store.audioContext.resume()
-      }
       isPlaying.value = true
       progress.total = store.howl.duration()
       startProgressLoop()
@@ -192,7 +159,15 @@ async function getBvidUrl(item) {
     const res = await invokeBiliApi(BLBL.GET_VIDEO_INFO, {
       bvid: item.bvid,
     })
-    const { cid } = res.data
+    const pages = Array.isArray(res?.data?.pages) ? res.data.pages : []
+    const resolvedCid = Number(item?.cid || 0)
+    const fallbackCid = Number(res?.data?.cid || pages?.[0]?.cid || 0)
+    const cid = resolvedCid && pages.some(p => Number(p?.cid || 0) === resolvedCid)
+      ? resolvedCid
+      : fallbackCid
+    const aid = Number(res?.data?.aid || item?.aid || 0)
+    if (!cid)
+      throw new Error('No cid resolved for bvid')
 
     const dashRes = await invokeBiliApi(BLBL.GET_AUDIO_OF_VIDEO, {
       cid,
@@ -205,6 +180,9 @@ async function getBvidUrl(item) {
 
     return {
       ...item,
+      aid,
+      cid,
+      bvid: res?.data?.bvid || item?.bvid,
       url,
       video,
       dash,
@@ -216,6 +194,15 @@ async function getBvidUrl(item) {
 }
 async function getCidUrl(item) {
   try {
+    let aid = Number(item?.aid || 0)
+    if ((!aid || !item?.bvid) && item?.bvid) {
+      try {
+        const info = await invokeBiliApi(BLBL.GET_VIDEO_INFO, { bvid: item.bvid })
+        aid = Number(info?.data?.aid || aid || 0)
+      } catch (e) {
+        console.warn('Failed to enrich aid for cid item:', e)
+      }
+    }
     const dashRes = await invokeBiliApi(BLBL.GET_AUDIO_OF_VIDEO, {
       cid: item.cid,
       bvid: item.bvid,
@@ -227,6 +214,8 @@ async function getCidUrl(item) {
 
     return {
       ...item,
+      aid,
+      cid: Number(item?.cid || 0),
       url,
       video,
       dash,
@@ -256,7 +245,14 @@ async function getSidUrl(item) {
 async function getPlayUrl(currentSong) {
   if (!currentSong)
     return
-  if (currentSong.url) {
+  const needStableIds = (song) => {
+    const type = song?.eno_song_type
+    if (type !== 'bvid' && type !== 'cid')
+      return false
+    return !(Number(song?.cid || 0) > 0 && Number(song?.aid || 0) > 0)
+  }
+
+  if (currentSong.url && !needStableIds(currentSong)) {
     store.play = currentSong
     return
   }
@@ -383,7 +379,14 @@ onBeforeUnmount(() => {
     navigator.mediaSession.setActionHandler('nexttrack', null)
   }
 })
-function openBlTab() {
+async function openBlTab() {
+  if (store.play && !store.play?.url) {
+    try {
+      await getPlayUrl(store.play)
+    } catch (e) {
+      console.warn('Failed to prepare play url before opening fullscreen:', e)
+    }
+  }
   showFullscreenPlayer.value = true
 }
 function changeVideoMode() {
@@ -526,8 +529,7 @@ async function downloadSong() {
       </div>
     </div>
     <FullscreenPlayer v-model:show="showFullscreenPlayer" :isPlaying="isPlaying" :progress="progress"
-      @play="playControl" @prev="() => change('prev')" @next="() => change('next')" @seek="handleFullscreenSeek"
-      @volume="handleChangeVoice" />
+      @play="playControl" @prev="() => change('prev')" @next="() => change('next')" @seek="handleFullscreenSeek" />
   </section>
 </template>
 
