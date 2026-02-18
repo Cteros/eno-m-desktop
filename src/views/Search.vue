@@ -1,7 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useInfiniteScroll, useScroll } from '@vueuse/core'
-import cn from 'classnames'
+import { ref, computed } from 'vue'
 
 defineOptions({
   name: 'search'
@@ -10,140 +8,136 @@ defineOptions({
 import SongItem from '~/components/SongItem.vue'
 import Loading from '~/components/loading/index.vue'
 import { invokeBiliApi, BLBL } from '~/api/bili'
+import Message from '~/components/message'
 
-const scrollRef = ref(null)
-const pageNum = ref(1)
-const containerHeight = ref(0)
-const rowHeight = 64
-const bufferRows = 4
+const PAGE_SIZE = 10
 
 const keyword = ref('')
 const result = ref([])
 const isLoading = ref(false)
 const errorMessage = ref('')
-// 单个搜索结果过少时不触发滚动加载
-const enableScrollGetMore = ref(true)
+const hasSearched = ref(false)
+const currentPage = ref(1)
+const totalPages = ref(1)
+const totalCount = ref(0)
 
-const { y: scrollY } = useScroll(scrollRef)
+const paginationItems = computed(() => {
+  const total = totalPages.value
+  const current = currentPage.value
 
-function updateContainerHeight() {
-  const el = scrollRef.value
-  if (el)
-    containerHeight.value = el.clientHeight
-}
+  if (total <= 7)
+    return Array.from({ length: total }, (_, i) => i + 1)
 
-const totalRows = computed(() => result.value.length)
+  const items = [1]
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
 
-const visibleRange = computed(() => {
-  if (!result.value.length)
-    return { start: 0, end: 0, top: 0, bottom: 0 }
-  const startRow = Math.max(0, Math.floor(scrollY.value / rowHeight) - bufferRows)
-  const endRow = Math.min(
-    totalRows.value - 1,
-    Math.ceil((scrollY.value + containerHeight.value) / rowHeight) + bufferRows
-  )
-  const start = startRow
-  const end = Math.min(result.value.length, endRow + 1)
-  const top = startRow * rowHeight
-  const bottom = Math.max(0, (totalRows.value - endRow - 1) * rowHeight)
-  return { start, end, top, bottom }
-})
+  if (start > 2)
+    items.push('ellipsis-left')
 
-const visibleResults = computed(() => {
-  return result.value.slice(visibleRange.value.start, visibleRange.value.end)
+  for (let page = start; page <= end; page++)
+    items.push(page)
+
+  if (end < total - 1)
+    items.push('ellipsis-right')
+
+  items.push(total)
+  return items
 })
 
 function isUrl(url) {
-  return /bilibili.com/.test(url)
+  if (typeof url !== 'string')
+    return false
+
+  return /bilibili\.com/i.test(url)
 }
 
 // 检查响应是否为HTML（表示被风控）
 function isHtmlResponse(data) {
-  if (typeof data === 'string') {
+  if (typeof data === 'string')
     return /<html|<head|<body/i.test(data)
-  }
+
   return false
 }
 
-// 滚动加载
-useInfiniteScroll(
-  scrollRef,
-  async () => {
-    if (!enableScrollGetMore.value)
-      return
-    const moreData = await getMoreData()
-    if (moreData && moreData.length) {
-      result.value = result.value.concat(moreData)
-    }
-  },
-  { distance: 10 },
-)
+function mapSearchItem(item) {
+  let cover = item?.pic || ''
+  if (typeof cover === 'string' && cover.startsWith('//'))
+    cover = `http:${cover}`
+  else if (typeof cover !== 'string')
+    cover = ''
 
-// 加载函数
-async function getMoreData() {
-  pageNum.value++
-
-  try {
-    const res = await invokeBiliApi(BLBL.SEARCH, {
-      keyword: keyword.value,
-      page: pageNum.value,
-    })
-
-    // 检查是否被风控
-    if (isHtmlResponse(res)) {
-      errorMessage.value = '请求被风控，请稍后重试'
-      return []
-    }
-
-    const list = res.data?.result || []
-
-    return list.map((item) => {
-      let cover = item.pic
-      if (cover && cover.startsWith('//')) {
-        cover = 'http:' + cover
-      }
-
-      return {
-        id: item.id || item.bvid,
-        eno_song_type: 'bvid',
-        cover,
-        title: item.title ? item.title.replace(/<[^>]+>/g, '') : '',
-        description: item.description || item.desc,
-        author: item.author || item.owner?.name || '未知',
-        duration: item.duration,
-        bvid: item.bvid,
-        pages: item.pages,
-        mid: item.mid,
-      }
-    })
-  } catch (error) {
-    console.error('Search error:', error)
-    errorMessage.value = '搜索失败，请稍后重试'
-    return []
-  } finally {
-    isLoading.value = false
+  return {
+    id: item?.id || item?.bvid,
+    eno_song_type: 'bvid',
+    cover,
+    title: typeof item?.title === 'string' ? item.title.replace(/<[^>]+>/g, '') : '',
+    description: item?.description || item?.desc || '',
+    author: item?.author || item?.owner?.name || '未知',
+    duration: item?.duration,
+    bvid: item?.bvid,
+    pages: item?.pages,
+    mid: item?.mid,
   }
+}
+
+async function fetchSearchPage(page) {
+  const res = await invokeBiliApi(BLBL.SEARCH, {
+    keyword: keyword.value,
+    page,
+    page_size: PAGE_SIZE,
+  })
+
+  if (isHtmlResponse(res)) {
+    errorMessage.value = '请求被风控，请稍后重试'
+    return
+  }
+
+  const data = (res && typeof res === 'object' && res.data && typeof res.data === 'object')
+    ? res.data
+    : {}
+  const list = Array.isArray(data.result) ? data.result : []
+  result.value = list.map(mapSearchItem)
+
+  const apiTotalPages = Number(data.numPages || data.num_pages || 0)
+  const apiTotalCount = Number(data.numResults || data.num_results || 0)
+
+  totalCount.value = apiTotalCount > 0
+    ? apiTotalCount
+    : ((page - 1) * PAGE_SIZE + list.length)
+
+  totalPages.value = Math.max(
+    1,
+    apiTotalPages || (apiTotalCount > 0 ? Math.ceil(apiTotalCount / PAGE_SIZE) : page),
+  )
+}
+
+function resetSearchState() {
+  result.value = []
+  currentPage.value = 1
+  totalPages.value = 1
+  totalCount.value = 0
 }
 
 // 搜索
 async function handleSearch() {
-  if (!keyword.value) return
+  const input = keyword.value.trim()
+  if (!input)
+    return
 
+  keyword.value = input
   isLoading.value = true
+  hasSearched.value = true
   errorMessage.value = ''
-  enableScrollGetMore.value = true
-  pageNum.value = 0
-  result.value = []
+  resetSearchState()
 
   try {
     if (isUrl(keyword.value)) {
-      const match = keyword.value.match(/BV([a-zA-Z0-9]+)/)
+      const match = keyword.value.match(/BV([a-zA-Z0-9]+)/i)
       if (match) {
         const bvid = match[0]
-        // 获取对应的歌曲
         const res = await invokeBiliApi(BLBL.GET_VIDEO_INFO, { bvid })
 
-        // 检查是否被风控
         if (isHtmlResponse(res)) {
           errorMessage.value = '请求被风控，请稍后重试'
           return
@@ -151,7 +145,7 @@ async function handleSearch() {
 
         const item = res.data
         if (item) {
-          const searchSong = {
+          result.value = [{
             id: item.id || item.bvid,
             eno_song_type: 'bvid',
             cover: item.pic,
@@ -162,17 +156,22 @@ async function handleSearch() {
             bvid: item.bvid,
             pages: item.pages,
             mid: item.owner?.mid || item.mid,
-          }
-
-          result.value = [searchSong]
-          enableScrollGetMore.value = false
+          }]
+          totalPages.value = 1
+          totalCount.value = 1
         }
       }
+      else {
+        Message.show({
+          message: '链接里没有识别到 BV 号',
+          type: 'warning',
+          duration: 1200,
+        })
+      }
+      return
     }
-    else {
-      const newList = await getMoreData()
-      result.value = newList
-    }
+
+    await fetchSearchPage(1)
   } catch (error) {
     console.error('Search failed:', error)
     errorMessage.value = '搜索失败，请稍后重试'
@@ -181,22 +180,30 @@ async function handleSearch() {
   }
 }
 
-onMounted(() => {
-  updateContainerHeight()
-  window.addEventListener('resize', updateContainerHeight)
-})
+async function handlePageChange(page) {
+  if (isLoading.value)
+    return
 
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateContainerHeight)
-})
+  if (page < 1 || page > totalPages.value || page === currentPage.value)
+    return
 
-watch(
-  () => result.value.length,
-  async () => {
-    await nextTick()
-    updateContainerHeight()
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    await fetchSearchPage(page)
+    currentPage.value = page
+  } catch (error) {
+    console.error('Page change failed:', error)
+    Message.show({
+      message: '翻页失败，请稍后重试',
+      type: 'error',
+      duration: 1200,
+    })
+  } finally {
+    isLoading.value = false
   }
-)
+}
 </script>
 
 <template>
@@ -230,8 +237,7 @@ watch(
     </div>
 
     <!-- 搜索结果 -->
-    <div v-if="result.length && !isLoading && !errorMessage" ref="scrollRef"
-      class="flex-1 w-full overflow-y-auto scrollbar-styled pb-8 min-h-0">
+    <div v-if="result.length && !isLoading && !errorMessage" class="flex-1 w-full overflow-y-auto scrollbar-styled pb-8 min-h-0">
       <div
         class="grid grid-cols-[3rem_3.5rem_1fr_4rem_3rem] gap-4 text-[#b3b3b3] text-sm border-b border-[#ffffff1a] pb-2 mb-4 px-4 sticky top-0 bg-[#121212] z-10">
         <div class="text-center">#</div>
@@ -241,9 +247,35 @@ watch(
         <div></div>
       </div>
 
-      <div :style="{ paddingTop: `${visibleRange.top}px`, paddingBottom: `${visibleRange.bottom}px` }">
-        <SongItem v-for="(item, index) in visibleResults" :key="item.bvid" :song="item"
-          :index="visibleRange.start + index + 1" check-pages class="hover:bg-[#ffffff1a] rounded-md px-2" />
+      <SongItem v-for="(item, index) in result" :key="item.bvid" :song="item"
+        :index="(currentPage - 1) * PAGE_SIZE + index + 1" check-pages class="hover:bg-[#ffffff1a] rounded-md px-2" />
+
+      <div class="mt-6 px-4 flex items-center justify-between gap-3 text-[#b3b3b3]">
+        <div class="text-sm">共 {{ totalCount }} 项</div>
+
+        <div class="flex items-center gap-2">
+          <button
+            class="h-8 px-3 rounded bg-[#242424] hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed"
+            :disabled="currentPage <= 1" @click="handlePageChange(currentPage - 1)">
+            上一页
+          </button>
+
+          <button v-for="item in paginationItems" :key="item"
+            class="h-8 min-w-8 px-2 rounded text-sm disabled:cursor-default"
+            :class="typeof item === 'number'
+              ? (item === currentPage ? 'bg-white text-black' : 'bg-[#242424] hover:bg-[#2a2a2a] text-white')
+              : 'bg-transparent text-[#7a7a7a]'"
+            :disabled="typeof item !== 'number'"
+            @click="typeof item === 'number' ? handlePageChange(item) : undefined">
+            {{ item === 'ellipsis-left' || item === 'ellipsis-right' ? '...' : item }}
+          </button>
+
+          <button
+            class="h-8 px-3 rounded bg-[#242424] hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed"
+            :disabled="currentPage >= totalPages" @click="handlePageChange(currentPage + 1)">
+            下一页
+          </button>
+        </div>
       </div>
     </div>
 
@@ -252,19 +284,15 @@ watch(
       class="flex-1 flex flex-col items-center justify-center text-[#b3b3b3] gap-4">
       <div class="i-mingcute:music-2-fill text-6xl opacity-50"></div>
       <div class="text-center">
-        <h3 class="font-bold text-white mb-2">搜索 Bilibili 视频或音频</h3>
-        <p class="text-sm">输入关键字、BV号或视频链接即可开始</p>
+        <h3 class="font-bold text-white mb-2">{{ hasSearched ? '未找到相关内容' : '搜索 Bilibili 视频或音频' }}</h3>
+        <p class="text-sm">{{ hasSearched ? '换个关键词试试' : '输入关键字、BV号或视频链接即可开始' }}</p>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-/* 自定义 SongItem 在列表中的样式适配 */
-/* SongItem now handles its own layout */
 :deep(.song-item) {
-  /* Override the grid layout to match header if needed, but SongItem has its own defaults */
-  /* We force specific columns to align with header */
   grid-template-columns: 3rem 3.5rem 1fr 4rem 3rem !important;
 }
 </style>
