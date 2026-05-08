@@ -42,7 +42,7 @@ function handleUnpinTag(tagid, e) {
 </script>
 
 <template>
-  <aside class="h-full flex flex-col gap-2 w-[280px] min-w-[280px] select-none text-[#b3b3b3]">
+  <aside class="h-full flex flex-col gap-2 w-[200px] select-none text-[#b3b3b3]">
     <!-- 顶部导航区 -->
     <div :class="cn(panelClass, 'p-3 gap-2 relative')">
       <!-- 窗口拖拽区域 -->
@@ -66,7 +66,7 @@ function handleUnpinTag(tagid, e) {
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-2 pb-2 scrollbar-hide">
+      <div class="flex-1 overflow-y-auto px-2 pb-2 scrollbar-hide h-full">
         <!-- 暂时用TabItem代替，后续可以是列表 -->
         <div class="flex flex-col gap-1">
           <TabItem v-for="tab in libraryTabs" :key="tab.mode" :tab="tab" :open="true"
@@ -74,7 +74,7 @@ function handleUnpinTag(tagid, e) {
         </div>
 
         <!-- Pinned 分组 -->
-        <div v-if="pinnedTags.length > 0" class="mt-4 pt-4 border-t border-[#282828]">
+        <div class="mt-4 pt-4 border-t border-[#282828]">
           <div class="px-2 py-2 text-xs font-bold text-gray-500 mb-2">
             固定的分组
           </div>
@@ -91,17 +91,15 @@ function handleUnpinTag(tagid, e) {
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- 底部设置区 -->
-    <div :class="cn(panelClass, 'p-3 gap-2')">
-      <TabItem v-for="tab in settingTabs" :key="tab.mode" :tab="tab" :open="true"
-        class="font-bold hover:text-white transition-colors">
-        <div v-if="tab.mode === 'setting' && updateCheckRef?.updateAvailable" @click="handleUpdateClick"
-          class="ml-auto px-2 py-0.5 text-xs bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors">
-          NEW
-        </div>
-      </TabItem>
+      <div class="p-3">
+        <TabItem v-for="tab in settingTabs" :key="tab.mode" :tab="tab" :open="true"
+          class="font-bold hover:text-white transition-colors">
+          <div v-if="tab.mode === 'setting' && updateCheckRef?.updateAvailable" @click="handleUpdateClick"
+            class="ml-auto px-2 py-0.5 text-xs bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors">
+            NEW
+          </div>
+        </TabItem>
+      </div>
     </div>
     <Teleport to="body">
       <UpdateCheck ref="updateCheckRef" :custom-trigger="true" />
