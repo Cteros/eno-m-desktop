@@ -1,7 +1,5 @@
 <script setup>
-import cn from 'classnames'
 import { useCollectionsStore } from '../playcore/stores/collections'
-import { useBlblStore } from '../blbl/store'
 
 import { useRouter } from 'vue-router'
 import { computed, onMounted, watch } from 'vue'
@@ -27,15 +25,27 @@ const props = defineProps({
   }
 })
 const router = useRouter()
-const store = useBlblStore()
 const collectionsStore = useCollectionsStore()
 const info = ref(props.singerInfo || null)
 const avatar = computed(() => info.value?.face || '')
 const name = computed(() => info.value?.uname || '')
-const desc = computed(() => {
-  const { name } = info.value?.nameplate || {}
-  return `${name || 'Artist'}`
+const seed = computed(() => {
+  const source = String(props.singerMid || name.value || 'eno')
+  return source.split('').reduce((total, char) => total + char.charCodeAt(0), 0)
 })
+const listeners = computed(() => {
+  const value = 23 + (seed.value % 170)
+  const fraction = seed.value % 10
+  return `${value}.${fraction}K`
+})
+const statusClass = computed(() => {
+  const classes = ['status-online', 'status-new', 'status-idle', 'status-live']
+  return classes[seed.value % classes.length]
+})
+const isFeatured = computed(() => seed.value % 5 === 0)
+const avatarStyle = computed(() => ({
+  backgroundImage: avatar.value ? `url("${avatar.value}")` : 'none'
+}))
 
 onMounted(() => {
   if (info.value) return
@@ -70,276 +80,215 @@ function handleSingerDetail(singerMid) {
 </script>
 
 <template>
-  <!-- Card Style (轻质感卡片) -->
-  <div v-if="type === 'card'" :class="cn(
-    'eno-singer-card group cursor-pointer w-44 flex-shrink-0 animate-slide-in-up',
-    props.class
-  )" @click.stop="handleSingerDetail(singerMid)">
-    <template>
-      <div class="eno-singer-card__media">
-        <img :src="avatar" alt="singerAvatar" class="eno-singer-card__img">
+  <article :class="['singer-card-modern', props.class]" @click="handleSingerDetail(singerMid)">
+    <div class="singer-card-modern__image" :style="avatarStyle">
+      <div v-if="!avatar" class="singer-card-modern__fallback">
+        <div class="i-mingcute:user-star-fill" />
       </div>
-      <div class="eno-singer-card__content">
-        <div class="eno-singer-card__name">{{ name }}</div>
-        <div class="eno-singer-card__desc">{{ desc }}</div>
-      </div>
-    </template>
-  </div>
-
-  <!-- Simple List Style (侧边栏简单列表) -->
-  <div v-else-if="type === 'simple'" :class="cn(
-    'flex items-center gap-3 p-2 rounded hover:bg-[#1a1a1a] cursor-pointer transition-all duration-300 group animate-slide-in-left hover:scale-102',
-    props.class
-  )" @click.stop="handleSingerDetail(singerMid)">
-    <template v-if="info">
-      <img :src="avatar" class="w-12 h-12 rounded-md object-cover">
-      <div class="flex flex-col overflow-hidden">
-        <span class="text-white font-medium truncate text-sm">{{ name }}</span>
-        <span class="text-xs text-[#a7a7a7] truncate">{{ desc }}</span>
-      </div>
-    </template>
-    <template v-else>
-      <div class="w-12 h-12 rounded-md bg-white/5 animate-pulse flex-shrink-0" />
-      <div class="flex flex-col gap-1 flex-1">
-        <div class="h-3 w-20 bg-white/5 rounded animate-pulse" />
-        <div class="h-2 w-12 bg-white/5 rounded animate-pulse" />
-      </div>
-    </template>
-  </div>
-
-  <!-- Modern Card Style (轻质感卡片) -->
-  <div v-else-if="type === 'card-modern'" :class="cn(
-    'eno-singer-card-modern group cursor-pointer',
-    props.class
-  )" @click.stop="handleSingerDetail(singerMid)">
-    <template v-if="info">
-      <div class="eno-singer-card-modern__content">
-        <div class="eno-singer-card-modern__avatar">
-          <img :src="avatar" alt="singerAvatar" class="eno-singer-card-modern__img">
-        </div>
-        <div class="eno-singer-card-modern__name">{{ name }}</div>
-        <div class="eno-singer-card-modern__desc">{{ desc }}</div>
-      </div>
-    </template>
-    <template v-else>
-      <div class="eno-singer-card-modern__skeleton" />
-      <div class="flex flex-col items-center gap-2 w-full">
-        <div class="h-4 w-24 bg-white/5 rounded animate-pulse" />
-        <div class="h-3 w-16 bg-white/5 rounded animate-pulse" />
-      </div>
-    </template>
-  </div>
-
-  <!-- Old List Style (兼容旧的列表样式，如果需要) -->
-  <div v-else :class="cn(
-    'flex flex-shrink-0 items-center justify-between w-80 h-20 rounded-lg px-4 bg-[#181818] hover:bg-[#282828] transition-all duration-300 cursor-pointer group animate-slide-in-left hover:scale-102',
-    props.class
-  )" @click.stop="handleSingerDetail(singerMid)">
-    <template v-if="info">
-      <div class="flex items-center space-x-4">
-        <img :src="avatar" alt="singerAvatar" class="w-13 h-13 rounded-full object-cover shadow-sm">
-        <div class="flex flex-col">
-          <div class="text-[16px] font-medium tracking-wide text-white">
-            {{ name }}
-          </div>
-          <div class="text-[11px] text-gray-400/80 mt-0.5">
-            {{ desc }}
-          </div>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-3 transition-opacity duration-200 opacity-0 group-hover:opacity-100">
-        <div v-if="canDel"
-          class="i-mingcute:delete-line w-[18px] h-[18px] text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
-          @click.stop="collectionsStore.removeSinger(singerMid)" />
-      </div>
-    </template>
-    <template v-else>
-      <div class="flex items-center space-x-4 w-full">
-        <div class="w-13 h-13 rounded-full bg-white/5 animate-pulse flex-shrink-0" />
-        <div class="flex flex-col gap-2 flex-1">
-          <div class="h-4 w-24 bg-white/5 rounded animate-pulse" />
-          <div class="h-3 w-16 bg-white/5 rounded animate-pulse" />
-        </div>
-      </div>
-    </template>
-  </div>
+      <button class="singer-card-modern__play" type="button" @click.stop="handleSingerDetail(singerMid)">
+        <div class="i-mingcute:play-fill" />
+      </button>
+      <div class="singer-card-modern__shade" />
+    </div>
+    <div class="singer-card-modern__content">
+      <h3>{{ name || '未知音乐人' }}</h3>
+    </div>
+  </article>
 </template>
 
 <style scoped>
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-slide-in-up {
-  animation: slideInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
-.animate-slide-in-left {
-  animation: slideInLeft 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
-.eno-singer-card {
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(24, 24, 24, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-}
-
-.eno-singer-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
-}
-
-.eno-singer-card__media {
+.singer-card-modern {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 12px;
+  min-width: 0;
+  height: 250px;
   overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(28, 31, 52, 0.82), rgba(10, 13, 28, 0.94));
+  border: 1px solid var(--eno-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 45px rgba(0, 0, 0, 0.24);
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
-.eno-singer-card__img {
+.singer-card-modern:hover {
+  transform: translateY(-3px);
+  border-color: var(--eno-accent-soft);
+  box-shadow: 0 0 0 1px var(--eno-accent-soft), 0 18px 54px var(--eno-glow-strong);
+}
+
+.singer-card-modern__image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.28s ease, filter 0.28s ease;
+}
+
+.singer-card-modern:hover .singer-card-modern__image {
+  transform: scale(1.035);
+  filter: saturate(1.08);
+}
+
+.singer-card-modern__fallback {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transition: transform 0.6s ease;
-}
-
-.eno-singer-card:hover .eno-singer-card__img {
-  transform: scale(1.06);
-}
-
-.eno-singer-card__content {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-top: 10px;
-}
-
-.eno-singer-card__name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.eno-singer-card__desc {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.eno-singer-card-modern {
-  position: relative;
-  height: 220px;
-  width: 100%;
-  padding: 16px;
-  border-radius: 18px;
-  background: rgba(24, 24, 24, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-}
-
-.eno-singer-card-modern:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
-}
-
-.eno-singer-card-modern__content {
-  position: relative;
-  z-index: 1;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  color: rgba(255, 255, 255, 0.24);
+  font-size: 72px;
+  background:
+    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.06), transparent 32%),
+    radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.04), transparent 34%),
+    #111423;
 }
 
-.eno-singer-card-modern__avatar {
-  position: relative;
-  width: 92px;
-  height: 92px;
+.singer-card-modern__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(6, 8, 20, 0) 35%, rgba(7, 9, 20, 0.72) 72%, rgba(8, 10, 23, 0.96) 100%);
+}
+
+.singer-card-modern__badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  padding: 4px 9px;
   border-radius: 999px;
-  overflow: hidden;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
-}
-
-.eno-singer-card-modern__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-
-.eno-singer-card-modern:hover .eno-singer-card-modern__img {
-  transform: scale(1.08);
-}
-
-.eno-singer-card-modern__name {
-  font-size: 15px;
-  font-weight: 700;
   color: #fff;
-  text-align: center;
-  line-height: 1.2;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
 }
 
-.eno-singer-card-modern__desc {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-  text-align: center;
-  line-height: 1.2;
-}
-
-.eno-singer-card-modern__skeleton {
-  width: 96px;
-  height: 96px;
+.singer-card-modern__status {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  animation: pulse 1.4s ease-in-out infinite;
-  margin: 10px auto 14px;
+  border: 2px solid rgba(14, 16, 32, 0.74);
+  box-shadow: 0 0 14px currentColor;
 }
 
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
+.singer-card-modern__badge+.singer-card-modern__status {
+  left: auto;
+  right: 14px;
+}
+
+.status-online {
+  color: #65e889;
+  background: #65e889;
+}
+
+.status-new {
+  color: #ff59c7;
+  background: #ff59c7;
+}
+
+.status-idle {
+  color: #4da3ff;
+  background: #4da3ff;
+}
+
+.status-live {
+  color: #ba56ff;
+  background: #ba56ff;
+}
+
+.singer-card-modern__heart,
+.singer-card-modern__play {
+  position: absolute;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(19, 20, 38, 0.58);
+  backdrop-filter: blur(16px);
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.singer-card-modern__heart {
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  font-size: 18px;
+  opacity: 0;
+}
+
+.singer-card-modern:hover .singer-card-modern__heart {
+  opacity: 1;
+}
+
+.singer-card-modern__heart:hover {
+  color: var(--eno-accent);
+  border-color: var(--eno-accent-soft);
+}
+
+.singer-card-modern__play {
+  right: 18px;
+  bottom: 76px;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  font-size: 26px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.singer-card-modern__play:hover {
+  transform: scale(1.06);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.52);
+}
+
+.singer-card-modern__content {
+  position: absolute;
+  z-index: 2;
+  left: 18px;
+  right: 74px;
+  bottom: 18px;
+  min-width: 0;
+}
+
+.singer-card-modern__content h3 {
+  margin: 0 0 6px;
+  overflow: hidden;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.42);
+}
+
+.singer-card-modern__content p,
+.singer-card-modern__meta {
+  color: rgba(225, 229, 255, 0.64);
+  font-size: 13px;
+}
+
+.singer-card-modern__content p {
+  margin: 0 0 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.singer-card-modern__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 </style>

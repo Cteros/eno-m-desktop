@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useBlblStore } from '../../blbl/store'
 import { ProgressBar } from '../common'
 import { useImageThemeColor } from '@/composables/useImageThemeColor'
+import { invokeBiliApi, BLBL } from '~/api/bili'
 
 const props = defineProps({
   show: {
@@ -30,20 +31,6 @@ const subtitleError = ref('')
 const subtitleRequestId = ref(0)
 const lyricItemRefs = ref([])
 const lyricsScrollRef = ref(null)
-const subtitleLogLines = ref([])
-const subtitleLogSongId = ref('')
-const asrModel = 'large-v3'
-
-const getCurrentAudioUrl = () => {
-  const playUrl = String(store.play?.url || '')
-  if (playUrl)
-    return playUrl
-  const howlSrc = String(store?.howl?._src || '')
-  if (howlSrc)
-    return howlSrc
-  const soundSrc = String(store?.howl?._sounds?.[0]?._src || '')
-  return soundSrc
-}
 
 const parseSubtitleRows = (rows) => {
   if (!Array.isArray(rows))
@@ -58,63 +45,51 @@ const parseSubtitleRows = (rows) => {
     .filter(item => item.content && item.to > item.from)
 }
 
-const appendSubtitleLog = (line) => {
-  const text = String(line || '').trim()
-  if (!text)
-    return
-  subtitleLogLines.value.push(text)
-  if (subtitleLogLines.value.length > 120)
-    subtitleLogLines.value = subtitleLogLines.value.slice(-120)
-}
-
-const fetchSubtitles = async (forceRetranscribe = false) => {
+const fetchSubtitles = async () => {
   const requestId = ++subtitleRequestId.value
   subtitleLines.value = []
   subtitleLoading.value = true
   subtitleError.value = ''
-  const songId = String(store.play?.id || store.play?.bvid || store.play?.cid || '')
-  const audioUrl = getCurrentAudioUrl()
-  subtitleLogSongId.value = songId
-  subtitleLogLines.value = []
-  appendSubtitleLog(`start song=${songId || 'unknown'} model=${asrModel} mode=${forceRetranscribe ? 'force' : 'cache-only'}`)
-  if (!songId || !audioUrl) {
-    subtitleError.value = '当前歌曲缺少可转写音频链接'
-    appendSubtitleLog('missing audio url')
-    subtitleLoading.value = false
-    return
-  }
+
+  const bvid = String(store.play?.bvid || '')
+  const cid = Number(store.play?.cid || 0)
+  const aid = Number(store.play?.aid || 0)
 
   try {
-    // @ts-ignore
-    const ipcRenderer = window?.ipcRenderer
-    if (!ipcRenderer?.invoke) {
-      subtitleError.value = '本地字幕能力不可用'
-      appendSubtitleLog('ipc unavailable')
+    if (!bvid || !cid) {
+      subtitleError.value = '当前歌曲无对应视频'
       return
     }
-    const result = await ipcRenderer.invoke('subtitle-ai-get-by-song-id', {
-      songId,
-      audioUrl,
-      language: 'zh',
-      model: asrModel,
-      maxCache: 100,
-      cacheOnly: !forceRetranscribe,
-      forceRetranscribe,
-    })
-    if (requestId !== subtitleRequestId.value)
-      return
-    if (!result?.success) {
-      if (String(result?.error || '') === 'cache_miss' && !forceRetranscribe)
-        subtitleError.value = '暂无本地字幕缓存，点击「重试」开始转写'
-      else
-        subtitleError.value = String(result?.error || '本地转写失败')
-      appendSubtitleLog(`failed: ${subtitleError.value}`)
-      return
-    }
-    subtitleLines.value = parseSubtitleRows(result?.lines)
-    appendSubtitleLog(`done lines=${subtitleLines.value.length}`)
-    if (!subtitleLines.value.length)
+
+    const subtitleRes = await invokeBiliApi(BLBL.GET_VIDEO_SUBTITLE, { bvid, cid, aid })
+    if (requestId !== subtitleRequestId.value) return
+
+    const subtitles = subtitleRes?.data?.subtitle?.subtitles
+    if (!subtitles?.length) {
       subtitleError.value = '暂无字幕'
+      return
+    }
+
+    const firstSub = subtitles[0]
+    const subUrl = firstSub.subtitle_url
+    if (!subUrl) {
+      subtitleError.value = '暂无字幕'
+      return
+    }
+
+    const contentRes = await invokeBiliApi(BLBL.GET_VIDEO_SUBTITLE_CONTENT, { url: subUrl })
+    if (requestId !== subtitleRequestId.value) return
+
+    const lines = contentRes?.body
+    if (!lines?.length) {
+      subtitleError.value = '暂无字幕'
+      return
+    }
+
+    subtitleLines.value = parseSubtitleRows(lines)
+  } catch (err) {
+    if (requestId !== subtitleRequestId.value) return
+    subtitleError.value = '字幕加载失败'
   } finally {
     if (requestId === subtitleRequestId.value)
       subtitleLoading.value = false
@@ -170,7 +145,6 @@ const updateThemeFromCover = async (imageUrl) => {
     themeColor.value = color
 }
 
-// 将 RGB 颜色转换为 RGBA
 const rgbToRgba = (rgb, alpha) => {
   if (rgb.startsWith('rgba')) return rgb
   if (rgb.startsWith('rgb')) {
@@ -179,7 +153,6 @@ const rgbToRgba = (rgb, alpha) => {
   return rgb
 }
 
-// 音频控制
 const togglePlay = () => {
   emit('play')
 }
@@ -198,23 +171,20 @@ const changeProgress = (percent) => {
   emit('seek', percent)
 }
 
-// 监听显示状态
 watch(() => props.show, async (newVal) => {
   if (newVal) {
-    // 提取主题色
     if (store.play?.cover)
       await updateThemeFromCover(store.play.cover)
-    await fetchSubtitles(false)
+    await fetchSubtitles()
     await scrollActiveLyricIntoView()
   }
 })
 
-// 监听播放标识变化（同一首歌切换 cid 分P 也需要重拉字幕）
 watch(() => [store.play?.bvid, store.play?.cid, store.play?.aid], async () => {
   if (props.show && store.play?.cover)
     await updateThemeFromCover(store.play.cover)
   if (props.show)
-    await fetchSubtitles(false)
+    await fetchSubtitles()
   lyricItemRefs.value = []
 })
 
@@ -222,23 +192,8 @@ watch(() => activeSubtitleIndex.value, () => {
   scrollActiveLyricIntoView()
 })
 
-const asrLogListener = (_event, payload) => {
-  const targetSongId = String(payload?.songId || '')
-  if (!targetSongId || targetSongId !== subtitleLogSongId.value)
-    return
-  appendSubtitleLog(payload?.line)
-}
-
 onMounted(() => {
-  // @ts-ignore
-  const ipcRenderer = window?.ipcRenderer
-  ipcRenderer?.on?.('asr-log-line', asrLogListener)
-})
-
-onBeforeUnmount(() => {
-  // @ts-ignore
-  const ipcRenderer = window?.ipcRenderer
-  ipcRenderer?.off?.('asr-log-line', asrLogListener)
+  // cleanup
 })
 
 const close = () => {
@@ -260,23 +215,15 @@ const close = () => {
     <div v-if="show" class="fixed inset-0 z-[9999] flex flex-col overflow-hidden bg-[#1c1c1e]">
       <!-- 动态背景层 -->
       <div class="absolute inset-0 z-0">
-        <!-- 主背景色 -->
         <div class="absolute inset-0 bg-[#2c2c2e]" />
-
-        <!-- 动态渐变光晕 -->
         <div class="absolute inset-0 opacity-60 transition-colors duration-1000 ease-in-out" :style="{
           background: `radial-gradient(circle at 50% 30%, ${rgbToRgba(themeColor, 0.4)} 0%, transparent 70%)`
         }" />
         <div class="absolute inset-0 opacity-40 transition-colors duration-1000 ease-in-out" :style="{
           background: `radial-gradient(circle at 80% 80%, ${rgbToRgba(themeColor, 0.3)} 0%, transparent 60%)`
         }" />
-
-        <!-- 模糊封面背景 -->
         <img v-if="store.play?.cover" :src="store.play.cover"
           class="absolute inset-0 w-full h-full object-cover opacity-30 blur-[120px] scale-125 transition-opacity duration-700" />
-
-        <!-- 噪点纹理 (可选，增加质感) -->
-        <!-- <div class="absolute inset-0 opacity-[0.03]" style="background-image: url('data:image/svg+xml;base64,...')" /> -->
       </div>
 
       <!-- 内容区域 -->
@@ -284,14 +231,12 @@ const close = () => {
         <!-- 顶部栏 -->
         <div class="relative flex items-center justify-between px-6 pt-8 pb-3">
           <div class="hidden" @click="close"></div>
-
           <div class="relative z-[3]">
             <button @click="close"
               class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/14 bg-white/8 p-0 text-white/75 transition-all duration-200 hover:bg-white/14 hover:text-white">
               <div class="i-mingcute:down-line text-xl" />
             </button>
           </div>
-
           <div class="relative z-[3] flex items-center gap-3" />
         </div>
 
@@ -311,7 +256,6 @@ const close = () => {
                   </div>
                 </div>
 
-                <!-- 歌曲信息布局 (Apple Music 样式：左对齐标题，右侧更多按钮) -->
                 <div class="flex items-start justify-between mb-2">
                   <div class="flex-1 pr-4 text-center overflow-hidden">
                     <div class="mask-fade overflow-hidden whitespace-nowrap">
@@ -329,20 +273,14 @@ const close = () => {
                       </p>
                     </div>
                   </div>
-                  <!-- 收藏/更多操作 -->
-                  <!-- <button class="text-white/40 hover:text-primary active:scale-90 transition-all mt-1">
-                    <div class="i-mingcute:heart-line text-2xl" />
-                  </button> -->
                 </div>
 
-                <!-- 进度条区域 -->
                 <div class="w-full mb-4">
                   <ProgressBar class="progress-thin" :percent="props.progress.percent" :current="props.progress.current"
                     :total="props.progress.total" track-color="rgba(255,255,255,0.14)"
                     fill-color="rgba(226,244,255,0.96)" time-color="rgba(235,245,255,0.62)" @seek="changeProgress" />
                 </div>
 
-                <!-- 播放控制 -->
                 <div class="mb-4 flex items-center justify-center gap-4">
                   <button @click="prevSong"
                     class="inline-flex h-[46px] w-[46px] items-center justify-center rounded-full border border-white/14 bg-white/8 text-white/75 transition-all duration-200 hover:bg-white/14 hover:text-white">
@@ -358,7 +296,6 @@ const close = () => {
                     <div class="i-mingcute:skip-forward-fill text-[30px]" />
                   </button>
                 </div>
-
               </div>
             </div>
           </div>
@@ -366,7 +303,7 @@ const close = () => {
           <div ref="lyricsScrollRef"
             class="lyrics-scroll lyrics-vertical-fade h-[90vh] max-h-[90vh] w-full self-center overflow-y-auto px-8 py-5">
             <div v-if="subtitleLoading" class="pt-[18vh] text-center text-sm text-white/45">
-              正在加载字幕...
+              加载字幕中...
             </div>
             <div v-else-if="subtitleError || !subtitleLines.length" class="pt-[18vh] text-center text-sm text-white/45">
               {{ subtitleError || '暂无字幕' }}
@@ -380,28 +317,8 @@ const close = () => {
                 {{ line.content }}
               </button>
             </div>
-            <div v-if="subtitleLogLines.length"
-              class="mt-6 w-full rounded-lg border border-white/10 bg-black/25 p-3 text-left text-[12px] leading-5 text-white/60">
-              <div class="mb-2 flex items-center justify-between gap-3">
-                <div class="text-[11px] text-white/40">
-                  转写日志
-                </div>
-                <div class="flex items-center gap-2">
-                  <button type="button" class="rounded border border-white/15 bg-white/10 px-2 py-1 text-[11px] text-white/80"
-                    :disabled="subtitleLoading" @click="() => fetchSubtitles(true)">
-                    重新生成
-                  </button>
-                </div>
-              </div>
-              <div class="max-h-[160px] overflow-y-auto whitespace-pre-wrap break-all">
-                <div v-for="(line, idx) in subtitleLogLines" :key="`log-${idx}`">
-                  {{ line }}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
-
       </div>
     </div>
   </Transition>

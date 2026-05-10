@@ -53,12 +53,12 @@ const lastSyncTimeText = computed(() => {
               最后同步: {{ lastSyncTimeText }}
             </span>
             <button @click="handleSync" :disabled="PLStore.isSyncing || !userInfo.mid"
-              class="px-4 py-2 bg-[#1db954] text-white rounded-full font-medium hover:bg-[#1ed760] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
+              class="px-3 py-1.5 text-xs text-gray-400 border border-white/10 rounded-full hover:text-white hover:border-white/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5">
               <div :class="[
-                'i-mingcute:refresh-2-line text-lg',
+                'i-mingcute:refresh-2-line',
                 PLStore.isSyncing ? 'animate-spin' : ''
               ]" />
-              {{ PLStore.isSyncing ? '同步中...' : '同步数据' }}
+              {{ PLStore.isSyncing ? '同步中...' : '同步' }}
             </button>
           </div>
         </div>

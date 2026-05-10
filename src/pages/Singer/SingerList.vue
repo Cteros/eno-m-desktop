@@ -1,215 +1,173 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { playCoreStore } from '~/playcore/store'
 import SingerItem from '~/components/SingerItem.vue'
-import Message from '~/components/message'
-import { useScroll } from '@vueuse/core'
 
 const route = useRoute()
 const router = useRouter()
 const store = playCoreStore()
 
 const selectedTagId = ref(null)
-const listKey = ref(0) // 用于强制重新渲染列表
-const scrollRef = ref(null)
-const listRef = ref(null)
-const containerWidth = ref(0)
-const containerHeight = ref(0)
-const minCardWidth = 220
-const gridGap = 24
-const rowHeight = 224 + gridGap
+const listKey = ref(0)
 
-const { y: scrollY } = useScroll(scrollRef)
-
-function updateContainerMetrics() {
-  const listEl = listRef.value
-  const scrollEl = scrollRef.value
-  if (listEl)
-    containerWidth.value = listEl.clientWidth
-  if (scrollEl)
-    containerHeight.value = scrollEl.clientHeight
-}
-
-function getColumns(width) {
-  if (!width)
-    return 1
-  return Math.max(1, Math.floor((width + gridGap) / (minCardWidth + gridGap)))
-}
-
-const columns = computed(() => getColumns(containerWidth.value))
-
-// 从路由查询参数获取 tagid
 const tagidFromRoute = computed(() => {
   return route.query.tagid ? Number(route.query.tagid) : null
 })
 
-// 当路由改变时，同步 selectedTagId
 watch(() => tagidFromRoute.value, (newTagId) => {
   selectedTagId.value = newTagId
-  listKey.value++ // 切换分组时更新key，触发动画
+  listKey.value++
 }, { immediate: true })
 
-// 当前分组的up主列表（完整对象列表）
 const currentFollowers = computed(() => {
   if (selectedTagId.value === null) {
-    // 显示所有关注的人
     return store.allFollowersCache
   } else {
-    // 显示特定分组的人
     return store.getFollowersByTag(selectedTagId.value)
   }
 })
 
-const totalRows = computed(() => {
-  return Math.ceil(currentFollowers.value.length / columns.value)
-})
-
-const visibleRange = computed(() => {
-  const total = currentFollowers.value.length
-  if (!total)
-    return { start: 0, end: 0, top: 0, bottom: 0 }
-  const buffer = 1
-  const startRow = Math.max(0, Math.floor(scrollY.value / rowHeight) - buffer)
-  const endRow = Math.min(
-    totalRows.value - 1,
-    Math.ceil((scrollY.value + containerHeight.value) / rowHeight) + buffer
-  )
-  const start = startRow * columns.value
-  const end = Math.min(total, (endRow + 1) * columns.value)
-  const top = startRow * rowHeight
-  const bottom = Math.max(0, (totalRows.value - endRow - 1) * rowHeight)
-  return { start, end, top, bottom }
-})
-
-const visibleFollowers = computed(() => {
-  return currentFollowers.value.slice(visibleRange.value.start, visibleRange.value.end)
-})
-
-// 获取当前分组的信息
-const currentTag = computed(() => {
-  if (selectedTagId.value === null) {
-    return { name: '所有分组', count: store.allFollowersCache.length }
-  }
-  const tag = store.singerTagsCache[selectedTagId.value]
-  return tag ? { ...tag, count: store.getTagFollowerCount(selectedTagId.value) } : null
-})
-
-// 格式化最后同步时间
-const lastSyncTimeText = computed(() => {
-  if (!store.lastUpdateTime) return '从未同步'
-  const now = Date.now()
-  const diff = now - store.lastUpdateTime
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  return `${days}天前`
-})
-
 watch(() => selectedTagId.value, (newTagId) => {
   store.setCurrentTag(newTagId)
-  updateContainerMetrics()
 })
 
-onMounted(() => {
-  updateContainerMetrics()
-  window.addEventListener('resize', updateContainerMetrics)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateContainerMetrics)
-})
-
-// 手动同步数据
 const syncData = async () => {
   if (store.isSyncing) return
 
   try {
     if (selectedTagId.value === null) {
-      // 同步所有分组数据
       await store.fetchFollowingTags()
       await store.fetchAllFollowers()
     } else {
-      // 同步特定分组
       await store.fetchFollowersByTag(selectedTagId.value)
     }
-    listKey.value++ // 同步后更新key，触发动画
-    Message.show({ type: 'success', message: '同步成功' })
+    listKey.value++
   } catch (error) {
     console.error('Failed to sync:', error)
-    Message.show({ type: 'error', message: '同步失败' })
   }
 }
+
+watch(() => selectedTagId.value, () => {
+  syncData()
+})
+
+onMounted(() => {
+  syncData()
+})
 </script>
 
 <template>
-  <div class="page-container flex flex-col h-full">
-    <!-- 页面内容 -->
-    <section ref="scrollRef" class="flex-1 overflow-auto page-inner relative">
-      <!-- 内容区域 -->
-      <div class="relative z-10" ref="listRef">
-        <!-- 标题区域 -->
-        <div class="mb-8 mt-4">
-          <div class="flex items-end justify-between gap-6">
-            <div>
-              <h2 class="text-display mb-2">
-                {{ currentTag?.name || '加载中...' }}
-              </h2>
-              <p class="text-body-small">
-                {{ currentFollowers.length }} 位音乐人
-              </p>
-            </div>
-            <div class="flex items-center gap-3">
-              <span class="text-xs text-gray-500">
-                最后同步: {{ lastSyncTimeText }}
-              </span>
-              <button @click="syncData" :disabled="store.isSyncing"
-                class="px-4 py-2 bg-[#1db954] text-white rounded-full font-medium hover:bg-[#1ed760] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
-                <div :class="[
-                  'i-mingcute:refresh-2-line text-lg',
-                  store.isSyncing ? 'animate-spin' : ''
-                ]" />
-                {{ store.isSyncing ? '同步中...' : '同步数据' }}
-              </button>
-            </div>
-          </div>
-        </div>
+  <div class="singer-page">
+    <section class="singer-page__main">
+      <div v-if="store.isLoadingFollowers" class="singer-loading">
+        <div class="animate-spin i-mingcute:loading-3-line" />
+        <p>加载中...</p>
+      </div>
 
-        <!-- 加载状态 -->
-        <div v-if="store.isLoadingFollowers" class="flex flex-col items-center justify-center py-16">
-          <div class="animate-spin i-mingcute:loading-3-line text-4xl mb-4" />
-          <p class="text-body-small">加载中...</p>
-        </div>
+      <div v-else-if="currentFollowers.length > 0" class="singer-grid">
+        <SingerItem v-for="singer in currentFollowers" :key="`${listKey}-${singer.mid}`"
+          :singer-mid="String(singer.mid)" :singer-info="singer" type="card-modern" />
+      </div>
 
-        <!-- 歌手网格 -->
-        <div v-if="currentFollowers.length > 0"
-          :style="{ paddingTop: `${visibleRange.top}px`, paddingBottom: `${visibleRange.bottom}px` }">
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 auto-rows-max">
-            <SingerItem v-for="(singer, index) in visibleFollowers" :key="`${listKey}-${singer.mid}`"
-              :singer-mid="String(singer.mid)" :singer-info="singer" type="card-modern" class="h-56" />
-          </div>
-        </div>
-
-        <!-- 空状态 -->
-        <div v-else class="flex flex-col items-center justify-center py-16 text-center">
-          <div class="i-mingcute:user-star-line text-6xl mb-4 opacity-20" />
-          <h3 class="text-heading-1 mb-2">暂无音乐人</h3>
-          <p class="text-body-small">该分组下暂无关注的音乐人</p>
-        </div>
+      <div v-else class="singer-empty">
+        <div class="i-mingcute:user-star-line" />
+        <h3>暂无音乐人</h3>
+        <p class="text-body-small">该分组下暂无关注的音乐人</p>
       </div>
     </section>
   </div>
 </template>
 
 <style scoped>
-.page-container {
+.singer-page {
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  color: rgba(236, 241, 255, 0.86);
 
-  /* 移除 TransitionGroup 动画以提升大列表滚动性能 */
+}
+
+.singer-page__main {
+  height: 100%;
+  overflow: auto;
+  padding: 22px;
+}
+
+.singer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 24px;
+  padding-bottom: 100px;
+}
+
+.discover-card {
+  height: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed rgba(145, 163, 226, 0.25);
+  border-radius: 14px;
+  color: rgba(230, 235, 255, 0.7);
+  background:
+    radial-gradient(circle at 50% 36%, rgba(116, 73, 255, 0.12), transparent 34%),
+    rgba(7, 10, 24, 0.58);
+  cursor: pointer;
+}
+
+.discover-card span {
+  width: 54px;
+  height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 30px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.discover-card strong {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.discover-card small {
+  color: rgba(220, 226, 255, 0.48);
+}
+
+.singer-loading,
+.singer-empty {
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: rgba(220, 226, 255, 0.58);
+}
+
+.singer-loading>div,
+.singer-empty>div {
+  margin-bottom: 14px;
+  font-size: 46px;
+}
+
+.singer-empty h3 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 20px;
+}
+
+@media (max-width: 820px) {
+  .singer-page__main {
+    padding: 14px;
+  }
+
+  .singer-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
 }
 </style>
