@@ -1,10 +1,8 @@
 <script setup>
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import { useBlblStore } from '../../blbl/store'
 import { ProgressBar } from '../common'
 import { useImageThemeColor } from '@/composables/useImageThemeColor'
-import { invokeBiliApi, BLBL } from '~/api/bili'
-
 const props = defineProps({
   show: {
     type: Boolean,
@@ -25,118 +23,6 @@ const emit = defineEmits(['update:show', 'close', 'play', 'prev', 'next', 'seek'
 const store = useBlblStore()
 const themeColor = ref('#1db954')
 const { getColor } = useImageThemeColor()
-const subtitleLines = ref([])
-const subtitleLoading = ref(false)
-const subtitleError = ref('')
-const subtitleRequestId = ref(0)
-const lyricItemRefs = ref([])
-const lyricsScrollRef = ref(null)
-
-const parseSubtitleRows = (rows) => {
-  if (!Array.isArray(rows))
-    return []
-  return rows
-    .map((item) => {
-      const from = Number(item?.from ?? item?.start ?? 0)
-      const to = Number(item?.to ?? item?.end ?? 0)
-      const content = String(item?.content ?? item?.text ?? '').trim()
-      return { from, to, content }
-    })
-    .filter(item => item.content && item.to > item.from)
-}
-
-const fetchSubtitles = async () => {
-  const requestId = ++subtitleRequestId.value
-  subtitleLines.value = []
-  subtitleLoading.value = true
-  subtitleError.value = ''
-
-  const bvid = String(store.play?.bvid || '')
-  const cid = Number(store.play?.cid || 0)
-  const aid = Number(store.play?.aid || 0)
-
-  try {
-    if (!bvid || !cid) {
-      subtitleError.value = '当前歌曲无对应视频'
-      return
-    }
-
-    const subtitleRes = await invokeBiliApi(BLBL.GET_VIDEO_SUBTITLE, { bvid, cid, aid })
-    if (requestId !== subtitleRequestId.value) return
-
-    const subtitles = subtitleRes?.data?.subtitle?.subtitles
-    if (!subtitles?.length) {
-      subtitleError.value = '暂无字幕'
-      return
-    }
-
-    const firstSub = subtitles[0]
-    const subUrl = firstSub.subtitle_url
-    if (!subUrl) {
-      subtitleError.value = '暂无字幕'
-      return
-    }
-
-    const contentRes = await invokeBiliApi(BLBL.GET_VIDEO_SUBTITLE_CONTENT, { url: subUrl })
-    if (requestId !== subtitleRequestId.value) return
-
-    const lines = contentRes?.body
-    if (!lines?.length) {
-      subtitleError.value = '暂无字幕'
-      return
-    }
-
-    subtitleLines.value = parseSubtitleRows(lines)
-  } catch (err) {
-    if (requestId !== subtitleRequestId.value) return
-    subtitleError.value = '字幕加载失败'
-  } finally {
-    if (requestId === subtitleRequestId.value)
-      subtitleLoading.value = false
-  }
-}
-
-const activeSubtitleIndex = computed(() => {
-  const current = Number(props.progress?.current || 0)
-  if (!subtitleLines.value.length)
-    return -1
-  return subtitleLines.value.findIndex(item => current >= item.from && current <= item.to)
-})
-
-const setLyricItemRef = (el, index) => {
-  if (!el)
-    return
-  lyricItemRefs.value[index] = el
-}
-
-const scrollActiveLyricIntoView = async () => {
-  const index = activeSubtitleIndex.value
-  if (index < 0)
-    return
-  await nextTick()
-  const container = lyricsScrollRef.value
-  const target = lyricItemRefs.value[index]
-  if (container && target) {
-    const top = Math.max(0, target.offsetTop - (container.clientHeight / 2) + (target.clientHeight / 2))
-    container.scrollTo({
-      top,
-      behavior: 'smooth',
-    })
-    return
-  }
-  if (target?.scrollIntoView) {
-    target.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }
-}
-
-const seekToSubtitle = (line) => {
-  const total = Number(props.progress?.total || 0)
-  if (!total || !line?.from)
-    return
-  const percent = Math.max(0, Math.min(1, line.from / total))
-  emit('seek', percent)
-}
-
 const updateThemeFromCover = async (imageUrl) => {
   if (!imageUrl)
     return
@@ -172,28 +58,8 @@ const changeProgress = (percent) => {
 }
 
 watch(() => props.show, async (newVal) => {
-  if (newVal) {
-    if (store.play?.cover)
-      await updateThemeFromCover(store.play.cover)
-    await fetchSubtitles()
-    await scrollActiveLyricIntoView()
-  }
-})
-
-watch(() => [store.play?.bvid, store.play?.cid, store.play?.aid], async () => {
-  if (props.show && store.play?.cover)
+  if (newVal && store.play?.cover)
     await updateThemeFromCover(store.play.cover)
-  if (props.show)
-    await fetchSubtitles()
-  lyricItemRefs.value = []
-})
-
-watch(() => activeSubtitleIndex.value, () => {
-  scrollActiveLyricIntoView()
-})
-
-onMounted(() => {
-  // cleanup
 })
 
 const close = () => {
@@ -242,10 +108,10 @@ const close = () => {
 
         <!-- 主布局容器 -->
         <div
-          class="relative mx-auto grid h-full w-full max-w-[1280px] min-h-0 grid-cols-[minmax(340px,460px)_minmax(360px,560px)] grid-rows-1 items-center gap-14 overflow-hidden px-8 pb-4">
-          <div class="flex min-h-0 justify-end overflow-hidden">
+          class="mx-auto flex h-full w-full max-w-[460px] items-center justify-center px-8 pb-4">
+          <div class="flex min-h-0 items-center justify-center overflow-hidden">
             <div class="mx-auto flex h-full flex-col items-center justify-end gap-4">
-              <div class="w-[400px]  flex flex-col justify-end p-[14px_14px_12px]">
+              <div class="w-[400px] flex flex-col justify-end p-[14px_14px_12px]">
                 <div class="w-full mx-auto mb-3 flex justify-center">
                   <div class="cover-core w-full h-full rounded-2xl overflow-hidden shadow-2xl relative"
                     :style="{ boxShadow: `0 20px 50px -12px ${rgbToRgba(themeColor, 0.5)}` }">
@@ -299,25 +165,6 @@ const close = () => {
               </div>
             </div>
           </div>
-          <!-- 字幕 -->
-          <div ref="lyricsScrollRef"
-            class="lyrics-scroll lyrics-vertical-fade h-[90vh] max-h-[90vh] w-full self-center overflow-y-auto px-8 py-5">
-            <div v-if="subtitleLoading" class="pt-[18vh] text-center text-sm text-white/45">
-              加载字幕中...
-            </div>
-            <div v-else-if="subtitleError || !subtitleLines.length" class="pt-[18vh] text-center text-sm text-white/45">
-              {{ subtitleError || '暂无字幕' }}
-            </div>
-            <div v-else class="mx-auto flex w-full max-w-[520px] flex-col items-start justify-start gap-3">
-              <button v-for="(line, index) in subtitleLines" :key="`${line.from}-${index}`"
-                :ref="el => setLyricItemRef(el, index)" type="button"
-                class="w-full overflow-hidden border-none bg-transparent px-0 py-[1px] text-left text-[20px] leading-[1.5] font-semibold text-ellipsis whitespace-nowrap transition-all duration-250 hover:text-white/45"
-                :class="{ 'text-white text-[27px] font-black scale-110': index === activeSubtitleIndex }"
-                @click="seekToSubtitle(line)">
-                {{ line.content }}
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -325,22 +172,12 @@ const close = () => {
 </template>
 
 <style scoped>
-.lyrics-scroll {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
 .mask-fade {
   mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
 }
 
 .marquee {
   animation: marquee-bounce 8s linear infinite alternate;
-}
-
-.lyrics-vertical-fade {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8%, #000 92%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 8%, #000 92%, transparent 100%);
 }
 
 .progress-thin :deep(.slider-track) {
@@ -365,7 +202,4 @@ const close = () => {
   }
 }
 
-.lyrics-scroll::-webkit-scrollbar {
-  display: none;
-}
 </style>

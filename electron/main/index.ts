@@ -344,20 +344,23 @@ app.whenReady().then(() => {
       miniPlayerWin.webContents.send('mini-player-state', state)
     }
   })
-  // 拦截 B 站图片请求，设置 Referer 防止 403
+  // 拦截 B 站 CDN 请求，设置 Referer 防止 403
   session.defaultSession.webRequest.onBeforeSendHeaders({
     urls: [
       '*://*.hdslb.com/*',
       '*://*.bilivideo.com/*',
       '*://*.mcdn.bilivideo.cn/*',
+      '*://*.mcdn.bilivideo.com/*',
       '*://*.biliimg.com/*',
-      '*://*.biliimg.com.cn/*',
       '*://*.biliimg.com.cn/*',
       '*://*.biliimg.cn/*',
       'https://*.bilibili.com/*',
       'https://*.bilivideo.com/*',
       'https://*.bilivideo.cn/*',
-      'https://account.bilibili.com/*'
+      'https://account.bilibili.com/*',
+      '*://*.akamaized.com/*',
+      '*://*.akamaized.net/*',
+      '*://*.szbdyd.com/*',
     ]
   }, (details, callback) => {
     details.requestHeaders['Referer'] = 'https://www.bilibili.com/'
@@ -435,12 +438,16 @@ ipcMain.handle('open-external-window', async (_e, url: string) => {
         '*://*.hdslb.com/*',
         '*://*.bilivideo.com/*',
         '*://*.mcdn.bilivideo.cn/*',
+        '*://*.mcdn.bilivideo.com/*',
         '*://*.biliimg.com.cn/*',
         '*://*.biliimg.cn/*',
         'https://*.bilibili.com/*',
         'https://*.bilivideo.com/*',
         'https://*.bilivideo.cn/*',
-        'https://account.bilibili.com/*'
+        'https://account.bilibili.com/*',
+        '*://*.akamaized.com/*',
+        '*://*.akamaized.net/*',
+        '*://*.szbdyd.com/*',
       ]
     }, (details, callback) => {
       details.requestHeaders['Referer'] = 'https://www.bilibili.com/'

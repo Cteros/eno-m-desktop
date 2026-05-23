@@ -7,7 +7,7 @@ defineOptions({
 
 import SongItem from '~/components/SongItem.vue'
 import Loading from '~/components/loading/index.vue'
-import { invokeBiliApi, BLBL } from '~/api/bili'
+import { searchVideos, getVideoInfo } from '~/otter-api'
 import Message from '~/components/message'
 
 const PAGE_SIZE = 10
@@ -82,7 +82,7 @@ function mapSearchItem(item) {
 }
 
 async function fetchSearchPage(page) {
-  const res = await invokeBiliApi(BLBL.SEARCH, {
+  const res = await searchVideos({
     keyword: keyword.value,
     page,
     page_size: PAGE_SIZE,
@@ -119,6 +119,13 @@ function resetSearchState() {
   totalCount.value = 0
 }
 
+function resetSearch() {
+  keyword.value = ''
+  hasSearched.value = false
+  errorMessage.value = ''
+  resetSearchState()
+}
+
 // 搜索
 async function handleSearch() {
   const input = keyword.value.trim()
@@ -136,14 +143,9 @@ async function handleSearch() {
       const match = keyword.value.match(/BV([a-zA-Z0-9]+)/i)
       if (match) {
         const bvid = match[0]
-        const res = await invokeBiliApi(BLBL.GET_VIDEO_INFO, { bvid })
+        const res = await getVideoInfo({ bvid })
 
-        if (isHtmlResponse(res)) {
-          errorMessage.value = '请求被风控，请稍后重试'
-          return
-        }
-
-        const item = res.data
+        const item = res.detail
         if (item) {
           result.value = [{
             id: item.id || item.bvid,
@@ -208,85 +210,92 @@ async function handlePageChange(page) {
 
 <template>
   <section class="w-full flex flex-col pt-6 px-2 bg-[#121212] h-full min-h-0">
-    <!-- 搜索输入框 -->
-    <div class="w-[50vw] relative group mb-8 mx-auto">
-      <div class="absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none ml-1">
-        <div class="i-mingcute:search-line text-xl text-[#b3b3b3] group-focus-within:text-white transition-colors" />
-      </div>
-      <input id="search" v-model="keyword" type="text"
-        class="w-full h-12 pl-10 pr-10 rounded-full bg-[#242424] hover:bg-[#2a2a2a] hover:ring-1 hover:ring-[#ffffff33] focus:bg-[#2a2a2a] focus:ring-2 focus:ring-white outline-none text-white text-sm transition-all placeholder:text-[#757575]"
-        placeholder="想听什么？" @keyup.enter="handleSearch" autocomplete="off">
-      <div v-if="keyword"
-        class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-[#b3b3b3] hover:text-white"
-        @click="keyword = ''">
-        <div class="i-mingcute:close-line text-lg mr-2" />
-      </div>
-    </div>
-
-    <!-- Loading 指示器 -->
-    <div v-if="isLoading" class="flex justify-center items-center py-8">
-      <Loading />
-    </div>
-
-    <!-- 错误提示 -->
-    <div v-if="errorMessage" class="flex justify-center items-center py-8 text-red-500">
-      <div class="text-center">
-        <div class="i-mingcute:alert-circle-fill text-4xl mb-2"></div>
-        <p class="text-lg">{{ errorMessage }}</p>
-      </div>
-    </div>
-
-    <!-- 搜索结果 -->
-    <div v-if="result.length && !isLoading && !errorMessage" class="flex-1 w-full overflow-y-auto scrollbar-styled pb-8 min-h-0">
-      <div
-        class="grid grid-cols-[3rem_3.5rem_1fr_4rem_3rem] gap-4 text-[#b3b3b3] text-sm border-b border-[#ffffff1a] pb-2 mb-4 px-4 sticky top-0 bg-[#121212] z-10">
-        <div class="text-center">#</div>
-        <div></div>
-        <div>标题</div>
-        <div class="i-mingcute:time-line text-lg justify-self-end mr-4"></div>
-        <div></div>
+    <!-- 搜索栏 + 分页 -->
+    <div class="transition-all duration-500 ease-in-out"
+      :class="hasSearched ? 'flex items-center justify-between gap-4 mb-4' : 'flex justify-center mb-8'">
+      <!-- 搜索框 -->
+      <div class="relative group transition-all duration-500 ease-in-out"
+        :class="hasSearched ? 'w-[35vw]' : 'w-[50vw]'">
+        <div class="absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none ml-1">
+          <div class="i-mingcute:search-line text-xl text-[#b3b3b3] group-focus-within:text-white transition-colors" />
+        </div>
+        <input id="search" v-model="keyword" type="text"
+          class="w-full h-12 pl-10 pr-10 rounded-full bg-[#242424] hover:bg-[#2a2a2a] hover:ring-1 hover:ring-[#ffffff33] focus:bg-[#2a2a2a] focus:ring-2 focus:ring-white outline-none text-white text-sm transition-all placeholder:text-[#757575]"
+          placeholder="想听什么？" @keyup.enter="handleSearch" autocomplete="off">
+        <div v-if="keyword"
+          class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-[#b3b3b3] hover:text-white"
+          @click="resetSearch">
+          <div class="i-mingcute:close-line text-lg mr-2" />
+        </div>
       </div>
 
-      <SongItem v-for="(item, index) in result" :key="item.bvid" :song="item"
-        :index="(currentPage - 1) * PAGE_SIZE + index + 1" check-pages class="hover:bg-[#ffffff1a] rounded-md px-2" />
-
-      <div class="mt-6 px-4 flex items-center justify-between gap-3 text-[#b3b3b3]">
-        <div class="text-sm">共 {{ totalCount }} 项</div>
-
-        <div class="flex items-center gap-2">
+      <!-- 分页组件（搜索后悬浮在搜索框右侧） -->
+      <Transition name="pagination">
+        <div v-if="hasSearched" class="flex items-center gap-2 text-[#b3b3b3] shrink-0">
+          <span class="text-sm mr-2 whitespace-nowrap">共 {{ totalCount }} 项</span>
           <button
-            class="h-8 px-3 rounded bg-[#242424] hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed"
+            class="h-8 px-3 rounded bg-[#242424] hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             :disabled="currentPage <= 1" @click="handlePageChange(currentPage - 1)">
             上一页
           </button>
-
-          <button v-for="item in paginationItems" :key="item"
-            class="h-8 min-w-8 px-2 rounded text-sm disabled:cursor-default"
-            :class="typeof item === 'number'
-              ? (item === currentPage ? 'bg-white text-black' : 'bg-[#242424] hover:bg-[#2a2a2a] text-white')
-              : 'bg-transparent text-[#7a7a7a]'"
-            :disabled="typeof item !== 'number'"
-            @click="typeof item === 'number' ? handlePageChange(item) : undefined">
-            {{ item === 'ellipsis-left' || item === 'ellipsis-right' ? '...' : item }}
-          </button>
-
+          <div class="flex items-center gap-1 overflow-x-auto">
+            <button v-for="item in paginationItems" :key="item"
+              class="h-8 min-w-8 px-2 rounded text-sm disabled:cursor-default transition-all flex-shrink-0"
+              :class="typeof item === 'number'
+                ? (item === currentPage ? 'bg-white text-black' : 'bg-[#242424] hover:bg-[#2a2a2a] text-white')
+                : 'bg-transparent text-[#7a7a7a]'"
+              :disabled="typeof item !== 'number'"
+              @click="typeof item === 'number' ? handlePageChange(item) : undefined">
+              {{ item === 'ellipsis-left' || item === 'ellipsis-right' ? '...' : item }}
+            </button>
+          </div>
           <button
-            class="h-8 px-3 rounded bg-[#242424] hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed"
+            class="h-8 px-3 rounded bg-[#242424] hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             :disabled="currentPage >= totalPages" @click="handlePageChange(currentPage + 1)">
             下一页
           </button>
         </div>
-      </div>
+      </Transition>
     </div>
 
-    <!-- 初始状态/空状态 -->
-    <div v-if="!result.length && !isLoading && !errorMessage"
-      class="flex-1 flex flex-col items-center justify-center text-[#b3b3b3] gap-4">
-      <div class="i-mingcute:music-2-fill text-6xl opacity-50"></div>
-      <div class="text-center">
-        <h3 class="font-bold text-white mb-2">{{ hasSearched ? '未找到相关内容' : '搜索 Bilibili 视频或音频' }}</h3>
-        <p class="text-sm">{{ hasSearched ? '换个关键词试试' : '输入关键字、BV号或视频链接即可开始' }}</p>
-      </div>
+    <!-- 内容区（仅此区域滚动） -->
+    <div class="flex-1 min-h-0 overflow-y-auto scrollbar-styled">
+      <Transition name="content" mode="out-in">
+        <!-- Loading -->
+        <div v-if="isLoading" key="loading" class="flex items-center justify-center h-full">
+          <Loading />
+        </div>
+
+        <!-- 错误 -->
+        <div v-else-if="errorMessage" key="error" class="flex flex-col items-center justify-center h-full text-red-500">
+          <div class="i-mingcute:alert-circle-fill text-4xl mb-2"></div>
+          <p class="text-lg">{{ errorMessage }}</p>
+        </div>
+
+        <!-- 搜索结果 -->
+        <div v-else-if="result.length" key="results" class="pb-8">
+          <div
+            class="grid grid-cols-[3rem_3.5rem_1fr_4rem_3rem] gap-4 text-[#b3b3b3] text-sm border-b border-[#ffffff1a] pb-2 mb-4 px-4">
+            <div class="text-center">#</div>
+            <div></div>
+            <div>标题</div>
+            <div class="i-mingcute:time-line text-lg justify-self-end mr-4"></div>
+            <div></div>
+          </div>
+
+          <SongItem v-for="(item, index) in result" :key="item.bvid" :song="item"
+            :index="(currentPage - 1) * PAGE_SIZE + index + 1" check-pages class="hover:bg-[#ffffff1a] rounded-md px-2" />
+        </div>
+
+        <!-- 初始状态/空状态 -->
+        <div v-else key="empty" class="flex flex-col items-center justify-center h-full text-[#b3b3b3] gap-4">
+          <div class="i-mingcute:music-2-fill text-6xl opacity-50"></div>
+          <div class="text-center">
+            <h3 class="font-bold text-white mb-2">{{ hasSearched ? '未找到相关内容' : '搜索 Bilibili 视频或音频' }}</h3>
+            <p class="text-sm">{{ hasSearched ? '换个关键词试试' : '输入关键字、BV号或视频链接即可开始' }}</p>
+          </div>
+        </div>
+      </Transition>
     </div>
   </section>
 </template>
@@ -294,5 +303,28 @@ async function handlePageChange(page) {
 <style scoped>
 :deep(.song-item) {
   grid-template-columns: 3rem 3.5rem 1fr 4rem 3rem !important;
+}
+
+.pagination-enter-active,
+.pagination-leave-active {
+  transition: all 0.4s ease-in-out;
+}
+.pagination-enter-from,
+.pagination-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.content-enter-active,
+.content-leave-active {
+  transition: all 0.35s ease-in-out;
+}
+.content-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.content-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
 }
 </style>
