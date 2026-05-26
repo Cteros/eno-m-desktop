@@ -51,7 +51,7 @@
   "dependencies": {
     "@meanc/webext-fetch": "^0.0.3",
     "@types/howler": "^2.2.12",
-    "@types/webextension-polyfill": "^0.10.7",
+    "@types/webextension-polyfill": "^0.12.5",
     "@vueuse/core": "^13.9.0",
     "@vueuse/math": "^13.9.0",
     "@vueuse/motion": "^3.0.3",
