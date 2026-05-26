@@ -3,7 +3,7 @@ import { useLocalStorage } from "@vueuse/core";
 // @ts-ignore
 import { invokeBiliApi, BLBL } from "~/api/bili";
 // @ts-ignore
-import Message from '~/components/message';
+import { MessageAPI } from '@cloudfly/eno-ui';
 
 export interface Song {
   id: string | number;
@@ -215,9 +215,9 @@ export const useCollectionsStore = defineStore("playcore:collections", {
     addToListenLater(song: Song) {
       if (!this.listenLater.some(s => s.id === song.id)) {
         this.listenLater.push(song);
-        Message.show({ type: 'success', message: '已添加到待听列表' });
+        MessageAPI.show({ type: 'success', message: '已添加到待听列表' });
       } else {
-        Message.show({ type: 'warning', message: '该歌曲已在待听列表中' });
+        MessageAPI.show({ type: 'warning', message: '该歌曲已在待听列表中' });
       }
     },
 

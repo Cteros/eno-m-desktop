@@ -1,11 +1,13 @@
 <script setup>
 import { computed, ref } from 'vue'
 import cn from 'classnames'
-import TabItem from './TabItem.vue'
+import { TabItem } from '@cloudfly/eno-ui'
+import { useRouter } from 'vue-router'
 import UpdateCheck from './UpdateCheck.vue'
 import { playCoreStore } from '~/playcore/store'
-import Message from './message'
+import { MessageAPI } from '@cloudfly/eno-ui'
 
+const router = useRouter()
 const updateCheckRef = ref(null)
 const pcStore = playCoreStore()
 
@@ -24,8 +26,11 @@ const settingTabs = [
 
 const panelClass = "bg-[#121212] rounded-lg overflow-hidden flex flex-col"
 
-// 获取 pinned 分组
 const pinnedTags = computed(() => pcStore.getPinnedTags)
+
+function navigate(mode) {
+  router.push({ path: `/${mode}` })
+}
 
 function handleUpdateClick(e) {
   e.preventDefault()
@@ -37,7 +42,7 @@ function handleUnpinTag(tagid, e) {
   e.preventDefault()
   e.stopPropagation()
   pcStore.unpinTag(tagid)
-  Message.show({ type: 'success', message: '已取消固定' })
+  MessageAPI.show({ type: 'success', message: '已取消固定' })
 }
 </script>
 
@@ -53,7 +58,9 @@ function handleUnpinTag(tagid, e) {
         <div class="i-mingcute:music-3-fill text-2xl" />
         <span class="font-bold text-lg">ENO-M</span>
       </div>
-      <TabItem v-for="tab in navTabs" :key="tab.mode" :tab="tab" :open="true"
+      <TabItem v-for="tab in navTabs" :key="tab.mode"
+        :icon="tab.icon" :title="tab.title"
+        @click="navigate(tab.mode)"
         class="font-bold hover:text-white transition-colors" />
     </div>
 
@@ -69,7 +76,9 @@ function handleUnpinTag(tagid, e) {
       <div class="flex-1 overflow-y-auto px-2 pb-2 scrollbar-hide h-full">
         <!-- 暂时用TabItem代替，后续可以是列表 -->
         <div class="flex flex-col gap-1">
-          <TabItem v-for="tab in libraryTabs" :key="tab.mode" :tab="tab" :open="true"
+          <TabItem v-for="tab in libraryTabs" :key="tab.mode"
+            :icon="tab.icon" :title="tab.title"
+            @click="navigate(tab.mode)"
             class="hover:text-white hover:bg-[#1f1f1f] rounded transition-colors" />
         </div>
 
@@ -92,7 +101,9 @@ function handleUnpinTag(tagid, e) {
         </div>
       </div>
       <div class="p-3">
-        <TabItem v-for="tab in settingTabs" :key="tab.mode" :tab="tab" :open="true"
+        <TabItem v-for="tab in settingTabs" :key="tab.mode"
+          :icon="tab.icon" :title="tab.title"
+          @click="navigate(tab.mode)"
           class="font-bold hover:text-white transition-colors">
           <div v-if="tab.mode === 'setting' && updateCheckRef?.updateAvailable" @click="handleUpdateClick"
             class="ml-auto px-2 py-0.5 text-xs bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import Message from '~/components/message'
+import { MessageAPI } from '@cloudfly/eno-ui'
 
 interface Props {
   user: { isLogin: boolean; uname?: string; face?: string } | null
@@ -80,12 +80,12 @@ async function logoutBili() {
   try {
     await (window as any).ipcRenderer?.invoke('bili-logout')
     emit('logout')
-    Message.show({
+    MessageAPI.show({
       type: 'success',
       message: '已退出登录',
     })
   } catch (error) {
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: '退出登录失败',
     })

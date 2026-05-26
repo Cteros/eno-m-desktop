@@ -2,9 +2,8 @@
 import { useRouter, useRoute } from 'vue-router'
 import { inject, ref, computed, onMounted } from 'vue'
 import { playCoreStore } from '~/playcore/store'
-import Message from './message'
+import { MessageAPI, Dialog } from '@cloudfly/eno-ui'
 import LoginDialog from './LoginDialog.vue'
-import Dialog from './dialog/index.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -60,7 +59,7 @@ function handleTogglePin(tagid, e) {
   } else {
     if (!pcStore.pinTag(tagid)) {
       // pin 失败时可以显示提示
-      Message.show({ type: 'warning', message: '最多只能固定 5 个分组' })
+      MessageAPI.show({ type: 'warning', message: '最多只能固定 5 个分组' })
     }
   }
 }
@@ -75,7 +74,7 @@ async function handleDeleteTag(tagid, e) {
     }
 
     await pcStore.deleteTag(tagid)
-    Message.show({ type: 'success', message: '分组已删除' })
+    MessageAPI.show({ type: 'success', message: '分组已删除' })
 
     // 如果删除的是当前选中的分组,切换到其他分组
     if (selectedTagId.value === tagid) {
@@ -89,13 +88,13 @@ async function handleDeleteTag(tagid, e) {
       }
     }
   } catch (error) {
-    Message.show({ type: 'error', message: error.message || '删除分组失败' })
+    MessageAPI.show({ type: 'error', message: error.message || '删除分组失败' })
   }
 }
 
 async function handleCreateTag() {
   if (!newTagName.value.trim()) {
-    Message.show({ type: 'warning', message: '分组名称不能为空' })
+    MessageAPI.show({ type: 'warning', message: '分组名称不能为空' })
     return
   }
 
@@ -103,12 +102,12 @@ async function handleCreateTag() {
   try {
     const newTag = await pcStore.createTag(newTagName.value)
     if (newTag) {
-      Message.show({ type: 'success', message: `分组 "${newTag.name}" 创建成功` })
+      MessageAPI.show({ type: 'success', message: `分组 "${newTag.name}" 创建成功` })
       newTagName.value = ''
       showCreateTagDialog.value = false
     }
   } catch (error) {
-    Message.show({ type: 'error', message: error.message || '创建分组失败' })
+    MessageAPI.show({ type: 'error', message: error.message || '创建分组失败' })
   } finally {
     isCreatingTag.value = false
   }

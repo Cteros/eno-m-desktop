@@ -11,7 +11,7 @@ import { invokeBiliApi, BLBL } from '~/api/bili'
 
 import { useBlblStore } from '~/blbl/store'
 import { usePlaylistStore, type song } from '~/playlist/store'
-import Loading from '~/components/loading/index.vue'
+import { Loading } from '@cloudfly/eno-ui'
 
 const route = useRoute()
 const PLstore = usePlaylistStore()

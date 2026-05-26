@@ -1,6 +1,6 @@
 <script setup>
 import { usePlaylistStore } from './store'
-import Dialog from '~/components/dialog/index.vue'
+import { Dialog } from '@cloudfly/eno-ui'
 
 const PLStore = usePlaylistStore()
 

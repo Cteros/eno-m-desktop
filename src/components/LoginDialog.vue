@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, inject, watch } from 'vue'
-import Message from '~/components/message'
-import Dialog from '~/components/dialog/index.vue'
+import { MessageAPI, Dialog } from '@cloudfly/eno-ui'
 
 const props = defineProps<{
   modelValue: boolean
@@ -94,13 +93,13 @@ async function startBiliQrLogin() {
 async function logoutBili() {
   try {
     await (window as any).ipcRenderer?.invoke('bili-logout')
-    Message.show({
+    MessageAPI.show({
       type: 'success',
       message: '已退出登录',
     })
     close()
   } catch (error) {
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: '退出登录失败',
     })

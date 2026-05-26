@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import Dialog from '~/components/dialog/index.vue'
+import { Dialog } from '@cloudfly/eno-ui'
 import { usePlaylistStore } from '@/playlist/store'
 import { ref, watch } from 'vue'
 

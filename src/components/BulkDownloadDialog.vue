@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import Dialog from '~/components/dialog/index.vue'
+import { Dialog } from '@cloudfly/eno-ui'
 
 const props = defineProps({
   show: {

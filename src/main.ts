@@ -6,6 +6,7 @@ import router from "./router";
 import { initMiniPlayerBridge } from "./ipc/miniPlayerBridge";
 
 import "./style.css";
+import "@cloudfly/eno-ui/styles";
 
 import "./demos/ipc";
 // If you want use Node.js, the`nodeIntegration` needs to be enabled in the Main process.

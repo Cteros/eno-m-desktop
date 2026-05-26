@@ -10,12 +10,12 @@ import { VIDEO_MODE, useBlblStore } from '../../blbl/store'
 import { usePlaylistStore } from '../../playlist/store.ts'
 import { useDownloadStore } from '../../store/downloadStore'
 import { formatFileName } from '~/utils/filename'
-import { LoopSwitch, ProgressBar, Slider, PlayControlBar } from '../common'
+import { LoopSwitch, ProgressBar, Slider, PlayControlBar, MessageAPI } from '@cloudfly/eno-ui'
 import FullscreenPlayer from '../FullscreenPlayer/index.vue'
 
 // hooks & utils
 import useControl from './keys'
-import Message from '../message'
+
 // @ts-ignore
 import { invokeBiliApi, BLBL } from '~/api/bili'
 
@@ -395,7 +395,7 @@ function changeVideoMode() {
 
 async function downloadSong() {
   if (!store.play?.url || !store.play?.title) {
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: '无法下载：歌曲信息不完整',
       duration: 3000,
@@ -432,13 +432,13 @@ async function downloadSong() {
     const { success, filePath, error } = result
 
     if (success) {
-      Message.show({
+      MessageAPI.show({
         type: 'success',
         message: `下载完成：${filePath}`,
         duration: 4000,
       })
     } else {
-      Message.show({
+      MessageAPI.show({
         type: 'error',
         message: `下载失败：${error}`,
         duration: 4000,
@@ -446,7 +446,7 @@ async function downloadSong() {
     }
   } catch (err) {
     console.error('Download error:', err)
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: '下载异常，请检查FFmpeg是否已安装',
       duration: 4000,

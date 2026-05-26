@@ -3,7 +3,7 @@ import { useLocalStorage } from "@vueuse/core";
 // @ts-ignore
 import { invokeBiliApi, BLBL } from "~/api/bili";
 // @ts-ignore
-import Message from '~/components/message';
+import { MessageAPI } from '@cloudfly/eno-ui';
 
 export interface song {
     id: string | number;
@@ -107,13 +107,13 @@ export const usePlaylistStore = defineStore("playlist", {
                 // 获取列表后，开始后台获取封面
                 await this.fetchFavCovers();
 
-                Message.show({
+                MessageAPI.show({
                     type: 'success',
                     message: '同步成功'
                 });
             } catch (error) {
                 console.error('Failed to fetch fav lists:', error);
-                Message.show({
+                MessageAPI.show({
                     type: 'error',
                     message: '同步失败'
                 });
@@ -194,13 +194,13 @@ export const usePlaylistStore = defineStore("playlist", {
                     add_media_ids: mediaId.toString(),
                 });
                 this.addSongDialog = false;
-                Message.show({
+                MessageAPI.show({
                     type: 'success',
                     message: '添加成功'
                 });
             } catch (error) {
                 console.error('Failed to add song to fav:', error);
-                Message.show({
+                MessageAPI.show({
                     type: 'error',
                     message: '添加失败'
                 });
@@ -220,14 +220,14 @@ export const usePlaylistStore = defineStore("playlist", {
                     rid,
                     del_media_ids: mediaId.toString(),
                 });
-                Message.show({
+                MessageAPI.show({
                     type: 'success',
                     message: '移除成功'
                 });
                 // 刷新当前列表逻辑在组件里处理，或者这里触发一个事件
             } catch (error) {
                 console.error('Failed to remove song from fav:', error);
-                Message.show({
+                MessageAPI.show({
                     type: 'error',
                     message: '移除失败'
                 });

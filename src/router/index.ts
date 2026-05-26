@@ -48,6 +48,11 @@ const router = createRouter({
 			name: "miniplayer",
 			component: () => import("../pages/MiniPlayer.vue"),
 		},
+		{
+			path: "/ui-showcase",
+			name: "uiShowcase",
+			component: () => import("../views/UIShowcase.vue"),
+		},
 	],
 });
 

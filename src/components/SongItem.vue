@@ -5,7 +5,6 @@ import { useBlblStore } from '../blbl/store.ts'
 import { usePlaylistStore } from '../playlist/store.ts'
 // @ts-ignore
 import { invokeBiliApi, BLBL } from '~/api/bili'
-import Message from '~/components/message'
 import { useRouter } from 'vue-router'
 import { formatTime } from '~/utils'
 

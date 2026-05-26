@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useBlblStore } from '../../blbl/store'
-import { ProgressBar } from '../common'
+import { ProgressBar } from '@cloudfly/eno-ui'
 import { useImageThemeColor } from '@/composables/useImageThemeColor'
 const props = defineProps({
   show: {

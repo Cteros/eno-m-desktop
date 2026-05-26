@@ -11,9 +11,7 @@ import { invokeBiliApi, BLBL } from '~/api/bili'
 
 import { useBlblStore } from '~/blbl/store'
 import { usePlaylistStore, type song } from '~/playlist/store'
-import Loading from '~/components/loading/index.vue'
-// @ts-ignore
-import Message from '~/components/message'
+import { Loading, MessageAPI } from '@cloudfly/eno-ui'
 
 const route = useRoute()
 const PLstore = usePlaylistStore()
@@ -178,7 +176,7 @@ async function getVideos(params: Record<string, any>) {
     }
   } catch (e) {
     console.error('Failed to fetch collection videos:', e)
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: '加载视频失败'
     })

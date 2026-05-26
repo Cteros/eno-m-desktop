@@ -6,9 +6,8 @@ defineOptions({
 })
 
 import SongItem from '~/components/SongItem.vue'
-import Loading from '~/components/loading/index.vue'
+import { Loading, MessageAPI } from '@cloudfly/eno-ui'
 import { searchVideos, getVideoInfo } from '~/otter-api'
-import Message from '~/components/message'
 
 const PAGE_SIZE = 10
 
@@ -164,7 +163,7 @@ async function handleSearch() {
         }
       }
       else {
-        Message.show({
+        MessageAPI.show({
           message: '链接里没有识别到 BV 号',
           type: 'warning',
           duration: 1200,
@@ -197,7 +196,7 @@ async function handlePageChange(page) {
     currentPage.value = page
   } catch (error) {
     console.error('Page change failed:', error)
-    Message.show({
+    MessageAPI.show({
       message: '翻页失败，请稍后重试',
       type: 'error',
       duration: 1200,

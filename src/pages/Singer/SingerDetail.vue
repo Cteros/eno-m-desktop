@@ -8,9 +8,7 @@ import { invokeBiliApi, BLBL } from '~/api/bili'
 
 import { useBlblStore } from '~/blbl/store.ts'
 import { playCoreStore, useCollectionsStore, useSingerStore } from '~/playcore/store'
-import Loading from '~/components/loading/index.vue'
-import Message from '~/components/message'
-import Dialog from '~/components/dialog/index.vue'
+import { Loading, MessageAPI, Dialog } from '@cloudfly/eno-ui'
 import { useDownloadStore } from '~/store/downloadStore'
 import { formatFileName } from '~/utils/filename'
 import BulkDownloadDialog from '~/components/BulkDownloadDialog.vue'
@@ -58,11 +56,11 @@ const handleFollowToggle = async () => {
     if (!nextFollowState) {
       // 取消关注
       await singerStore.unfollowUser(currentMid.value)
-      Message.show({ type: 'success', message: '已取消关注' })
+      MessageAPI.show({ type: 'success', message: '已取消关注' })
     } else {
       // 关注
       await singerStore.followUser(currentMid.value)
-      Message.show({ type: 'success', message: '已关注' })
+      MessageAPI.show({ type: 'success', message: '已关注' })
     }
     // 刷新关注列表
     await pcStore.fetchAllFollowers()
@@ -74,7 +72,7 @@ const handleFollowToggle = async () => {
       await pcStore.fetchAllFollowers()
       return
     }
-    Message.show({ type: 'error', message })
+    MessageAPI.show({ type: 'error', message })
     const button = document.querySelector('.singer-follow-btn')
     const el = button instanceof HTMLElement ? button : null
     if (el) {
@@ -232,14 +230,14 @@ function openAddToTagDialog() {
 // 添加用户到选中的分组
 async function handleAddUserToTags() {
   if (!currentMid.value || selectedTagsForAdd.value.length === 0) {
-    Message.show({ type: 'warning', message: '请选择至少一个分组' })
+    MessageAPI.show({ type: 'warning', message: '请选择至少一个分组' })
     return
   }
 
   isAddingToTag.value = true
   try {
     await pcStore.addUserToTags(currentMid.value, selectedTagsForAdd.value)
-    Message.show({ type: 'success', message: '已添加到分组' })
+    MessageAPI.show({ type: 'success', message: '已添加到分组' })
     showAddToTagDialog.value = false
     selectedTagsForAdd.value = []
 
@@ -254,7 +252,7 @@ async function handleAddUserToTags() {
     }
   } catch (error) {
     console.error(error)
-    Message.show({ type: 'error', message: error.message || '添加分组失败' })
+    MessageAPI.show({ type: 'error', message: error.message || '添加分组失败' })
   } finally {
     isAddingToTag.value = false
   }
@@ -376,7 +374,7 @@ async function fetchAllSongsForMid(mid) {
 // 打开准备批量下载（先获取所有歌曲并在对话框中展示）
 async function prepareBulkDownload() {
   if (!currentMid.value) {
-    Message.show({ type: 'error', message: '无效的歌手 ID' })
+    MessageAPI.show({ type: 'error', message: '无效的歌手 ID' })
     return
   }
 
@@ -423,7 +421,7 @@ async function prepareBulkDownload() {
     }
   } catch (e) {
     console.error(e)
-    Message.show({ type: 'error', message: '获取歌曲列表失败' })
+    MessageAPI.show({ type: 'error', message: '获取歌曲列表失败' })
   } finally {
     isPreparingBulk.value = false
   }
@@ -450,7 +448,7 @@ async function confirmBulkDownload() {
     if (item.status === 'existed') {
       if (idx >= 0) bulkSongList.value[idx].status = 'success'
       bulkDownloadIndex.value = i + 1
-      Message.show({ type: 'info', message: `已存在（跳过）：${item.title}`, duration: 2000 })
+      MessageAPI.show({ type: 'info', message: `已存在（跳过）：${item.title}`, duration: 2000 })
       return { success: true, item, skipped: true }
     }
 
@@ -462,7 +460,7 @@ async function confirmBulkDownload() {
       const playItem = await getSongPlayUrl(item)
       const url = playItem.url
       if (!url) {
-        Message.show({ type: 'error', message: `无法获取 ${item.title} 的下载地址` })
+        MessageAPI.show({ type: 'error', message: `无法获取 ${item.title} 的下载地址` })
         if (idx >= 0) bulkSongList.value[idx].status = 'failed'
         return { success: false, item, skipped: false }
       }
@@ -490,16 +488,16 @@ async function confirmBulkDownload() {
       if (result?.success) {
         if (idx >= 0) bulkSongList.value[idx].status = 'success'
         const message = result.skipped ? `已存在（跳过）：${item.title}` : `已下载：${item.title}`
-        Message.show({ type: 'success', message, duration: 3000 })
+        MessageAPI.show({ type: 'success', message, duration: 3000 })
         return { success: true, item, skipped: result.skipped }
       } else {
         if (idx >= 0) bulkSongList.value[idx].status = 'failed'
-        Message.show({ type: 'error', message: `下载失败：${item.title}` })
+        MessageAPI.show({ type: 'error', message: `下载失败：${item.title}` })
         return { success: false, item, skipped: false }
       }
     } catch (e) {
       console.error('bulk download error', e)
-      Message.show({ type: 'error', message: `下载异常：${item.title}` })
+      MessageAPI.show({ type: 'error', message: `下载异常：${item.title}` })
       if (idx >= 0) bulkSongList.value[idx].status = 'failed'
       return { success: false, item, skipped: false }
     }
@@ -508,10 +506,10 @@ async function confirmBulkDownload() {
   // ✅ 使用并发控制执行下载（3 个并发）
   try {
     await runWithConcurrency(downloadTasks, bulkConcurrency.value)
-    Message.show({ type: 'success', message: '批量下载任务已完成' })
+    MessageAPI.show({ type: 'success', message: '批量下载任务已完成' })
   } catch (error) {
     console.error('Concurrent download error:', error)
-    Message.show({ type: 'error', message: '批量下载发生错误' })
+    MessageAPI.show({ type: 'error', message: '批量下载发生错误' })
   }
 
   bulkDownloading.value = false
@@ -550,7 +548,7 @@ function stopBulkDownload() {
     return
   }
   bulkCancel.value = true
-  Message.show({ type: 'info', message: '正在停止批量下载，当前下载会在完成后停止' })
+  MessageAPI.show({ type: 'info', message: '正在停止批量下载，当前下载会在完成后停止' })
 }
 </script>
 

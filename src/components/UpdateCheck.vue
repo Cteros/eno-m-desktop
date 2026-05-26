@@ -100,7 +100,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import Dialog from './dialog/index.vue'
+import { Dialog } from '@cloudfly/eno-ui'
 
 const props = defineProps({
   customTrigger: {

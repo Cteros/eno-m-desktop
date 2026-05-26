@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useDownloadStore } from '~/store/downloadStore'
-import Message from '~/components/message'
+import { MessageAPI } from '@cloudfly/eno-ui'
 import BiliLoginCard from './components/BiliLoginCard.vue'
 import AppInfoCard from './components/AppInfoCard.vue'
 import FFmpegCard from './components/FFmpegCard.vue'
@@ -56,7 +56,7 @@ async function checkFFmpeg() {
         version: '',
         path: ''
       })
-      Message.show({
+      MessageAPI.show({
         type: 'error',
         message: '✗ 未找到 FFmpeg，请先安装',
       })
@@ -64,7 +64,7 @@ async function checkFFmpeg() {
   } catch (error: any) {
     ffmpegAvailable.value = false
     ffmpegError.value = error.message || '检查 FFmpeg 失败'
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: ffmpegError.value,
     })
@@ -82,7 +82,7 @@ async function downloadFFmpeg() {
   try {
     const result = await (window as any).ipcRenderer?.invoke('download-ffmpeg')
     if (result?.success) {
-      Message.show({
+      MessageAPI.show({
         type: 'success',
         message: 'FFmpeg 下载完成，请稍候...',
       })
@@ -90,14 +90,14 @@ async function downloadFFmpeg() {
       setTimeout(() => checkFFmpeg(), 2000)
     } else {
       ffmpegError.value = result?.error || '下载 FFmpeg 失败'
-      Message.show({
+      MessageAPI.show({
         type: 'error',
         message: ffmpegError.value,
       })
     }
   } catch (error: any) {
     ffmpegError.value = error.message || '下载 FFmpeg 出错'
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: ffmpegError.value,
     })
@@ -112,14 +112,14 @@ async function selectDownloadPath() {
     const result = await (window as any).ipcRenderer.invoke('select-directory')
     if (result.success && result.path) {
       downloadStore.setDownloadPath(result.path)
-      Message.show({
+      MessageAPI.show({
         type: 'success',
         message: `下载目录已设置为：${result.path}`,
       })
     }
   } catch (error) {
     console.error(error)
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: '选择目录失败',
     })
@@ -134,7 +134,7 @@ async function openDownloadFolder() {
       await (window as any).ipcRenderer.invoke('open-folder', path)
     }
   } catch (error) {
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: '打开文件夹失败',
     })
@@ -162,6 +162,22 @@ function handleBiliLogout() {
   user.value = null
 }
 
+async function openUIShowcase() {
+  try {
+    const ipc = (window as any).ipcRenderer
+    if (ipc?.invoke) {
+      await ipc.invoke('open-win', '/ui-showcase')
+      return
+    }
+  } catch {
+    // ignore ipc error
+  }
+  // Fallback: navigate in same window
+  const { useRouter } = await import('vue-router')
+  const router = useRouter()
+  router.push({ name: 'uiShowcase' })
+}
+
 function clearLocalCache() {
   const ok = window.confirm('确定清除本地缓存吗？这会清空本地保存的播放列表、偏好设置和登录状态。')
   if (!ok)
@@ -169,7 +185,7 @@ function clearLocalCache() {
 
   try {
     localStorage.clear()
-    Message.show({
+    MessageAPI.show({
       type: 'success',
       message: '本地缓存已清除，正在刷新...',
     })
@@ -178,7 +194,7 @@ function clearLocalCache() {
     }, 300)
   } catch (error) {
     console.error('Failed to clear local cache:', error)
-    Message.show({
+    MessageAPI.show({
       type: 'error',
       message: '清除缓存失败',
     })
@@ -196,6 +212,9 @@ function clearLocalCache() {
         </div>
         <div class="settings-hero__meta">
           <span class="text-xs text-gray-500">偏好设置已自动保存</span>
+          <button class="eno-btn eno-btn-primary text-sm px-4 py-1.5 mr-2" @click="openUIShowcase">
+            🎨 组件展示
+          </button>
           <button class="eno-btn eno-btn-ghost text-red-300 hover:text-red-200 ml-3" @click="clearLocalCache">
             清除本地缓存
           </button>
