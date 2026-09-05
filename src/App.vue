@@ -107,61 +107,64 @@ watch(
     <router-view />
   </div>
 
-  <main v-else class="h-screen w-screen overflow-hidden text-[#b3b3b3] font-sans flex flex-col gap-2 p-2">
+  <main v-else class="sp-app">
     <GlobalGlow />
-    <div class="flex-1 flex gap-0 min-h-0 w-full" :class="{ 'playlist-open': showPlaylist }">
-      <!-- 左侧侧边栏 -->
-      <div class="flex-shrink-0 mr-2">
-        <Sider />
-      </div>
+    <div class="sp-body" :class="{ 'playlist-open': showPlaylist }">
+      <Sider />
 
-      <!-- 主内容区 -->
-      <div class="flex-1 min-w-0 bg-[#121212] rounded-lg overflow-hidden flex flex-col transition-all duration-300"
-        :style="showPlaylist ? 'transform: scale(0.992); filter: saturate(0.98) brightness(0.98);' : ''">
+      <div class="sp-main">
         <Header />
-        <div class="flex-1 overflow-y-auto relative scrollbar-styled">
-          <div class="min-h-full">
-            <router-view v-slot="{ Component }">
-              <transition name="fade">
-                <keep-alive include="search, playlist, singerList, setting">
-                  <component :is="Component" />
-                </keep-alive>
-              </transition>
-            </router-view>
-          </div>
+        <div class="sp-content scrollbar-styled">
+          <router-view v-slot="{ Component }">
+            <transition name="fade">
+              <keep-alive include="search, playlist, singerList, setting">
+                <component :is="Component" />
+              </keep-alive>
+            </transition>
+          </router-view>
         </div>
       </div>
 
-      <!-- 右侧播放列表 -->
       <div
-        class="flex-shrink-0 w-0 min-w-0 overflow-hidden pointer-events-none flex h-full transition-all duration-[340ms] relative"
-        :style="{ width: showPlaylist ? '320px' : '0', marginLeft: showPlaylist ? '8px' : '0', pointerEvents: showPlaylist ? 'auto' : 'none', opacity: showPlaylist ? '1' : '0' }">
-        <div
-          class="absolute top-0 left-0 w-[320px] h-full bg-[rgb(18_18_18_/_0.94)] border-[1px] border-[rgb(255_255_255_/_0.06)] rounded-lg overflow-hidden flex flex-col flex-1 shadow-[0_24px_60px_rgb(0_0_0_/_0.35)] transition-all duration-[280ms]"
-          :style="showPlaylist ? 'opacity: 1; transform: translateX(0) scale(1);' : 'opacity: 0; transform: translateX(12px) scale(0.985);'">
-          <div
-            class="flex items-center justify-between gap-3 px-4 py-3.5 border-b border-[rgb(255_255_255_/_0.06)] bg-gradient-to-b from-[rgb(32_32_32_/_0.95)] to-[rgb(18_18_18_/_0.95)]">
-            <div class="flex flex-col gap-1">
-              <span class="text-lg font-bold text-white">播放列表</span>
-              <span class="text-xs text-gray-500">共 {{ (store.playList as any[]).length }} 首</span>
+        class="sp-queue"
+        :style="{
+          width: showPlaylist ? '320px' : '0',
+          marginLeft: showPlaylist ? '8px' : '0',
+          pointerEvents: showPlaylist ? 'auto' : 'none',
+          opacity: showPlaylist ? '1' : '0',
+        }"
+      >
+        <div class="sp-queue-panel" :class="{ 'sp-queue-panel--open': showPlaylist }">
+          <div class="sp-queue-head">
+            <div>
+              <div class="sp-queue-title">
+                播放列表
+              </div>
+              <div class="sp-queue-count">
+                共 {{ (store.playList as any[]).length }} 首
+              </div>
             </div>
-            <button class="eno-btn eno-btn-ghost" @click="showPlaylist = false">
+            <button type="button" class="eno-btn eno-btn-ghost" @click="showPlaylist = false">
               <div class="i-mingcute:close-line" />
               关闭
             </button>
           </div>
-          <div class="flex-1 overflow-y-auto p-2.5 min-h-0 scrollbar-styled">
-            <SongItem v-for="(song, index) in (store.playList as any[])" :key="(song as any).id" show-active del
-              :song="song" size="mini" @delete-song="deleteSong(index)"
-              class="rounded-lg transition-all duration-200 hover:bg-[rgb(255_255_255_/_0.06)]"
-              :style="{ transitionDelay: `${Math.min(index, 12) * 12}ms` }" />
+          <div class="sp-queue-list scrollbar-styled">
+            <SongItem
+              v-for="(song, index) in (store.playList as any[])"
+              :key="(song as any).id"
+              show-active
+              del
+              :song="song"
+              size="mini"
+              @delete-song="deleteSong(index)"
+            />
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 底部播放栏 -->
-    <div class="h-[72px] z-50">
+    <div class="sp-player">
       <Play />
     </div>
 
@@ -172,14 +175,115 @@ watch(
 </template>
 
 <style>
-html {
+html,
+body,
+#app {
+  background: #000;
+  font-family: var(--app-font-sans);
+}
+
+.sp-app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  padding: 8px 8px 0;
+  color: #b3b3b3;
   background: #000;
 }
 
-/* 全局滚动条样式优化 */
+.sp-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  gap: 8px;
+  width: 100%;
+}
+
+.sp-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #121212;
+}
+
+.sp-content {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+}
+
+.sp-queue {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.28s var(--eno-ease), opacity 0.28s var(--eno-ease), margin 0.28s var(--eno-ease);
+}
+
+.sp-queue-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  width: 320px;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #121212;
+  opacity: 0;
+  transform: translateX(12px);
+  transition: opacity 0.28s var(--eno-ease), transform 0.28s var(--eno-ease);
+}
+
+.sp-queue-panel--open {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.sp-queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+}
+
+.sp-queue-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.sp-queue-count {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #7c7c7c;
+}
+
+.sp-queue-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px;
+}
+
+.sp-player {
+  z-index: 50;
+  height: 80px;
+  flex-shrink: 0;
+}
+
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 
 *::-webkit-scrollbar-track {
@@ -187,31 +291,18 @@ html {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgb(255 255 255 / 0.3);
-  border-radius: 4px;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background-clip: padding-box;
+  background-color: rgb(255 255 255 / 30%);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgb(255 255 255 / 0.5);
-}
-
-img {
-  position: relative;
-}
-
-img::before {
-  content: "";
-  display: block;
-  width: 100%;
-  height: 100%;
-  background-image: url("/assets/broken-image.png");
-  background-size: 25px;
-  background-position: center;
-  background-repeat: no-repeat;
+  background-color: rgb(255 255 255 / 50%);
 }
 
 .fade-enter-active {
-  animation: fadeIn 0.5s;
+  animation: fadeIn 0.22s var(--eno-ease);
 }
 
 @keyframes fadeIn {

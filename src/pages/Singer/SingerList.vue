@@ -84,21 +84,20 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  color: rgba(236, 241, 255, 0.86);
-
+  color: #b3b3b3;
 }
 
 .singer-page__main {
   height: 100%;
   overflow: auto;
-  padding: 22px;
+  padding: 24px 32px;
 }
 
 .singer-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 24px;
-  padding-bottom: 100px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 40px;
 }
 
 .discover-card {

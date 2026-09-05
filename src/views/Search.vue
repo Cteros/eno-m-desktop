@@ -208,22 +208,37 @@ async function handlePageChange(page) {
 </script>
 
 <template>
-  <section class="w-full flex flex-col pt-6 px-2 bg-[#121212] h-full min-h-0">
+  <section class="search-page">
+    <header class="search-hero">
+      <h1 class="search-title">
+        搜索
+      </h1>
+    </header>
+
     <!-- 搜索栏 + 分页 -->
-    <div class="transition-all duration-500 ease-in-out"
-      :class="hasSearched ? 'flex items-center justify-between gap-4 mb-4' : 'flex justify-center mb-8'">
+    <div
+      class="search-toolbar"
+      :class="hasSearched ? 'search-toolbar--compact' : ''"
+    >
       <!-- 搜索框 -->
-      <div class="relative group transition-all duration-500 ease-in-out"
-        :class="hasSearched ? 'w-[35vw]' : 'w-[50vw]'">
+      <div class="relative group search-input-wrap" :class="hasSearched ? 'search-input-wrap--compact' : ''">
         <div class="absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none ml-1">
-          <div class="i-mingcute:search-line text-xl text-[#b3b3b3] group-focus-within:text-white transition-colors" />
+          <div class="i-mingcute:search-line text-xl text-black" />
         </div>
-        <input id="search" v-model="keyword" type="text"
-          class="w-full h-12 pl-10 pr-10 rounded-full bg-[#242424] hover:bg-[#2a2a2a] hover:ring-1 hover:ring-[#ffffff33] focus:bg-[#2a2a2a] focus:ring-2 focus:ring-white outline-none text-white text-sm transition-all placeholder:text-[#757575]"
-          placeholder="想听什么？" @keyup.enter="handleSearch" autocomplete="off">
-        <div v-if="keyword"
-          class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-[#b3b3b3] hover:text-white"
-          @click="resetSearch">
+        <input
+          id="search"
+          v-model="keyword"
+          type="text"
+          class="search-input"
+          placeholder="想听什么？"
+          autocomplete="off"
+          @keyup.enter="handleSearch"
+        >
+        <div
+          v-if="keyword"
+          class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-[#757575] hover:text-black"
+          @click="resetSearch"
+        >
           <div class="i-mingcute:close-line text-lg mr-2" />
         </div>
       </div>
@@ -258,7 +273,7 @@ async function handlePageChange(page) {
     </div>
 
     <!-- 内容区（仅此区域滚动） -->
-    <div class="flex-1 min-h-0 overflow-y-auto scrollbar-styled">
+    <div class="flex-1 min-h-0 overflow-y-auto scrollbar-styled px-2">
       <Transition name="content" mode="out-in">
         <!-- Loading -->
         <div v-if="isLoading" key="loading" class="flex items-center justify-center h-full">
@@ -267,32 +282,43 @@ async function handlePageChange(page) {
 
         <!-- 错误 -->
         <div v-else-if="errorMessage" key="error" class="flex flex-col items-center justify-center h-full text-red-500">
-          <div class="i-mingcute:alert-circle-fill text-4xl mb-2"></div>
-          <p class="text-lg">{{ errorMessage }}</p>
+          <div class="i-mingcute:alert-circle-fill text-4xl mb-2" />
+          <p class="text-lg">
+            {{ errorMessage }}
+          </p>
         </div>
 
         <!-- 搜索结果 -->
         <div v-else-if="result.length" key="results" class="pb-8">
+          <h2 class="result-title">
+            歌曲
+          </h2>
           <div
-            class="grid grid-cols-[3rem_3.5rem_1fr_4rem_3rem] gap-4 text-[#b3b3b3] text-sm border-b border-[#ffffff1a] pb-2 mb-4 px-4">
-            <div class="text-center">#</div>
-            <div></div>
+            class="grid grid-cols-[3rem_3.5rem_1fr_4rem_3rem] gap-4 text-[#b3b3b3] text-sm border-b border-[#ffffff1a] pb-2 mb-4 px-4"
+          >
+            <div class="text-center">
+              #
+            </div>
+            <div />
             <div>标题</div>
-            <div class="i-mingcute:time-line text-lg justify-self-end mr-4"></div>
-            <div></div>
+            <div class="i-mingcute:time-line text-lg justify-self-end mr-4" />
+            <div />
           </div>
 
-          <SongItem v-for="(item, index) in result" :key="item.bvid" :song="item"
-            :index="(currentPage - 1) * PAGE_SIZE + index + 1" check-pages class="hover:bg-[#ffffff1a] rounded-md px-2" />
+          <SongItem
+            v-for="(item, index) in result"
+            :key="item.bvid"
+            :song="item"
+            :index="(currentPage - 1) * PAGE_SIZE + index + 1"
+            check-pages
+            class="hover:bg-[#ffffff1a] rounded-md px-2"
+          />
         </div>
 
         <!-- 初始状态/空状态 -->
-        <div v-else key="empty" class="flex flex-col items-center justify-center h-full text-[#b3b3b3] gap-4">
-          <div class="i-mingcute:music-2-fill text-6xl opacity-50"></div>
-          <div class="text-center">
-            <h3 class="font-bold text-white mb-2">{{ hasSearched ? '未找到相关内容' : '搜索 Bilibili 视频或音频' }}</h3>
-            <p class="text-sm">{{ hasSearched ? '换个关键词试试' : '输入关键字、BV号或视频链接即可开始' }}</p>
-          </div>
+        <div v-else key="empty" class="empty-panel">
+          <h3>{{ hasSearched ? '未找到相关内容' : '开始搜索' }}</h3>
+          <p>{{ hasSearched ? '换个关键词试试' : '输入关键词或 Bilibili 视频链接。' }}</p>
         </div>
       </Transition>
     </div>
@@ -300,6 +326,96 @@ async function handlePageChange(page) {
 </template>
 
 <style scoped>
+.search-page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  background: linear-gradient(180deg, #1e1e1e 0%, #121212 220px);
+}
+
+.search-hero {
+  padding: 8px 24px 0;
+}
+
+.search-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.search-toolbar {
+  display: flex;
+  justify-content: center;
+  margin: 20px 24px 16px;
+}
+
+.search-toolbar--compact {
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.search-input-wrap {
+  width: min(50vw, 420px);
+}
+
+.search-input-wrap--compact {
+  width: min(35vw, 360px);
+}
+
+.search-input {
+  width: 100%;
+  height: 48px;
+  border: 0;
+  border-radius: 24px;
+  padding: 0 40px 0 44px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  background: #fff;
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #757575;
+}
+
+.search-input:focus {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.result-title {
+  margin: 8px 16px 12px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.empty-panel {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 32px;
+  color: #b3b3b3;
+}
+
+.empty-panel h3 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.empty-panel p {
+  margin: 0;
+  font-size: 14px;
+}
+
 :deep(.song-item) {
   grid-template-columns: 3rem 3.5rem 1fr 4rem 3rem !important;
 }

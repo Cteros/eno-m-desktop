@@ -21,12 +21,12 @@ const props = defineProps({
 const emit = defineEmits(['update:show', 'close', 'play', 'prev', 'next', 'seek'])
 
 const store = useBlblStore()
-const themeColor = ref('#1db954')
+const themeColor = ref('#1ed760')
 const { getColor } = useImageThemeColor()
 const updateThemeFromCover = async (imageUrl) => {
   if (!imageUrl)
     return
-  const color = await getColor(imageUrl, '#1db954')
+  const color = await getColor(imageUrl, '#1ed760')
   if (color)
     themeColor.value = color
 }

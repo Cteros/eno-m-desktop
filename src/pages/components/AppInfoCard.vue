@@ -31,7 +31,7 @@ const updateStatusColor = computed(() => {
     <div class="settings-card__header">
       <div>
         <div class="settings-card__title">
-          <div class="i-mingcute:information-line text-xl text-[#1db954]" />
+          <div class="i-mingcute:information-line text-xl text-[#1ed760]" />
           <span>关于应用</span>
         </div>
         <div class="settings-card__subtitle">版本与更新信息</div>

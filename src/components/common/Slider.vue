@@ -76,7 +76,7 @@ function onTrackClick(e: MouseEvent) {
   width: 14px;
   height: 14px;
   background: var(--slider-thumb-color, #fff);
-  /* border: 2px solid #1db954; */
+  /* border: 2px solid #1ed760; */
   border-radius: 50%;
   box-shadow: 0 0 4px #0003;
   pointer-events: none;
@@ -95,7 +95,7 @@ function onTrackClick(e: MouseEvent) {
 }
 
 .slider-input:focus-visible {
-  outline: 2px solid #1db954;
+  outline: 2px solid #1ed760;
   outline-offset: 2px;
   opacity: 0.3;
 }

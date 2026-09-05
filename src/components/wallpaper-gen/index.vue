@@ -473,7 +473,7 @@ function handleChangeSelectedPoster(poster: string) {
             <div
               v-for="resolution in exportResolutions"
               :key="resolution"
-              class="text-[14px] font-bold bg-[#1db954] text-black px-3 py-1 rounded-full transition-colors flex items-center gap-2"
+              class="text-[14px] font-bold bg-[#1ed760] text-black px-3 py-1 rounded-full transition-colors flex items-center gap-2"
               :class="isExporting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-[#1ed760]'"
               @click="handleExportResolution(resolution)"
             >
@@ -520,9 +520,9 @@ function handleChangeSelectedPoster(poster: string) {
                     :src="poster"
                     crossorigin="anonymous"
                     class="w-full rounded-md transition-all duration-200"
-                    :class="selectedPosters.includes(poster) ? 'ring-2 ring-[#1db954]' : 'opacity-60 group-hover:opacity-100'"
+                    :class="selectedPosters.includes(poster) ? 'ring-2 ring-[#1ed760]' : 'opacity-60 group-hover:opacity-100'"
                   >
-                  <div v-if="selectedPosters.includes(poster)" class="absolute top-2 right-2 bg-[#1db954] rounded-full p-0.5">
+                  <div v-if="selectedPosters.includes(poster)" class="absolute top-2 right-2 bg-[#1ed760] rounded-full p-0.5">
                     <div class="i-mingcute:check-line text-black text-sm"></div>
                   </div>
                 </div>

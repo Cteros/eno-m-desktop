@@ -643,7 +643,7 @@ function stopBulkDownload() {
           </div>
           <div v-else class="text-center py-8">
             <p class="text-gray-400">暂无分组，请先<router-link to="/singer"
-                class="text-[#1db954] hover:underline">创建分组</router-link></p>
+                class="text-[#1ed760] hover:underline">创建分组</router-link></p>
           </div>
         </div>
 
@@ -653,7 +653,7 @@ function stopBulkDownload() {
             取消
           </button>
           <button @click="handleAddUserToTags" :disabled="isAddingToTag || selectedTagsForAdd.length === 0"
-            class="px-4 py-2 rounded bg-[#1db954] hover:bg-[#1ed760] text-black font-medium transition-colors disabled:opacity-50">
+            class="px-4 py-2 rounded bg-[#1ed760] hover:bg-[#1ed760] text-black font-medium transition-colors disabled:opacity-50">
             {{ isAddingToTag ? '添加中...' : '添加' }}
           </button>
         </template>

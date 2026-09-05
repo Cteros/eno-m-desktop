@@ -142,16 +142,22 @@ function handleSingerDetail(singerMid) {
     <div class="relative">
       <img :src="cover" :class="styleBySize.img">
       <div v-if="isPlaying" class="absolute inset-0 bg-black/40 flex items-center justify-center rounded">
-        <div class="i-svg-spinners:bars-scale w-4 h-4 text-[#1db954]" />
+        <div class="i-svg-spinners:bars-scale w-4 h-4 text-[#1ed760]" />
       </div>
     </div>
 
     <div class="flex flex-col overflow-hidden justify-center h-full min-w-0">
-      <div :class="styleBySize.title" v-html="title" />
+      <div
+        :class="cn(styleBySize.title, { 'text-[#1ed760]': isPlaying })"
+        v-html="title"
+      />
       <div class="flex items-center gap-2 mt-0.5">
-        <span v-if="pages" class="bg-[#282828] text-[10px] px-1 rounded text-gray-300">合集</span>
-        <span :class="styleBySize.author" class="hover:text-white hover:underline"
-          @click.stop="handleSingerDetail(mid)">
+        <span v-if="pages" class="bg-[#282828] text-[10px] px-1 rounded text-[#1ed760]">合集</span>
+        <span
+          :class="styleBySize.author"
+          class="hover:text-white hover:underline"
+          @click.stop="handleSingerDetail(mid)"
+        >
           {{ author }}
         </span>
       </div>

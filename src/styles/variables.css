@@ -1,43 +1,71 @@
 :root {
-  --eno-bg: hsl(234, 24%, 8%);
+  color-scheme: dark;
 
-  --eno-text-1: hsla(234, 16%, 98%, 1);
-  --eno-text-2: hsla(234, 16%, 90%, 0.9);
-  --eno-text-3: hsla(234, 16%, 80%, 0.76);
-  --eno-text-4: hsla(234, 16%, 70%, 0.64);
+  --sp-black: #000000;
+  --sp-base: #121212;
+  --sp-elevated: #181818;
+  --sp-highlight: #1a1a1a;
+  --sp-press: #232323;
+  --sp-text: #ffffff;
+  --sp-sub: #b3b3b3;
+  --sp-muted: #7c7c7c;
+  --sp-green: #1ed760;
+  --sp-green-hover: #3be477;
+  --sp-green-press: #1abc54;
 
-  --eno-content: hsla(234, 16%, 16%, 0.6);
-  --eno-content-hover: hsla(234, 16%, 26%, 0.6);
+  --eno-radius-sm: 4px;
+  --eno-radius-md: 8px;
+  --eno-radius-lg: 8px;
+  --eno-radius-xl: 12px;
+  --eno-shadow-sm: none;
+  --eno-shadow-md: 0 8px 24px rgb(0 0 0 / 50%);
+  --eno-shadow-lg: 0 16px 40px rgb(0 0 0 / 55%);
+  --eno-ease: cubic-bezier(0.3, 0, 0, 1);
 
-  --eno-elevated: hsla(234, 16%, 22%, 0.6);
+  --app-font-sans:
+    'Helvetica Neue',
+    Helvetica,
+    Arial,
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Noto Sans CJK SC',
+    system-ui,
+    sans-serif;
 
-  --eno-fill-dark-1: hsla(246, 4%, 2%, 0.14);
-  --eno-fill-dark-2: hsla(246, 4%, 2%, 0.24);
-  --eno-fill-dark-3: hsla(246, 4%, 2%, 0.34);
-  --eno-fill-dark-4: hsla(246, 4%, 2%, 0.44);
+  --eno-bg: var(--sp-black);
+  --eno-text-1: var(--sp-text);
+  --eno-text-2: var(--sp-sub);
+  --eno-text-3: var(--sp-sub);
+  --eno-text-4: var(--sp-muted);
+  --eno-content: var(--sp-elevated);
+  --eno-content-hover: var(--sp-press);
+  --eno-elevated: var(--sp-elevated);
+  --eno-primary: var(--sp-green);
+  --eno-primary-hover: var(--sp-green-hover);
+  --eno-primary-light: rgb(30 215 96 / 18%);
+  --eno-border: #282828;
+  --eno-fill-dark-1: rgb(0 0 0 / 16%);
+  --eno-fill-dark-2: rgb(0 0 0 / 24%);
+  --eno-fill-dark-3: rgb(0 0 0 / 32%);
+  --eno-fill-dark-4: rgb(0 0 0 / 42%);
+  --eno-fill-1: rgb(255 255 255 / 5%);
+  --eno-fill-2: rgb(255 255 255 / 10%);
+  --eno-fill-3: rgb(255 255 255 / 16%);
+  --eno-fill-4: rgb(255 255 255 / 22%);
+  --eno-filter-glass-1: none;
+  --eno-filter-glass-2: none;
+  --eno-filter-glass-light-1: none;
+  --eno-filter-glass-light-2: none;
 
-  --eno-fill-1: hsla(246, 4%, 42%, 0.14);
-  --eno-fill-2: hsla(246, 4%, 42%, 0.24);
-  --eno-fill-3: hsla(246, 4%, 42%, 0.34);
-  --eno-fill-4: hsla(246, 4%, 42%, 0.44);
-
-  --eno-border: var(--eno-fill-2);
-
-  --eno-filter-glass-1: blur(20px) saturate(180%);
-  --eno-filter-glass-2: blur(40px) saturate(180%);
-
-  --eno-filter-glass-light-1: blur(20px) saturate(180%) brightness(1.2);
-  --eno-filter-glass-light-2: blur(40px) saturate(180%) brightness(1.2);
-
+  /* Desktop dynamic theme (cover-derived) */
   --eno-glow: #404040;
   --eno-glow-soft: rgba(64, 64, 64, 0.2);
   --eno-glow-strong: rgba(64, 64, 64, 0.45);
+  --eno-accent: var(--sp-green);
+  --eno-accent-soft: rgb(30 215 96 / 25%);
 
-  --eno-accent: #1db954;
-  --eno-accent-soft: rgba(29, 185, 84, 0.25);
-
-  --eno-dialog-bg: rgba(20, 20, 20, 0.9);
-  --eno-dialog-border: rgba(255, 255, 255, 0.1);
-  --eno-dialog-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
-  --eno-dialog-radius: 16px;
+  --eno-dialog-bg: rgb(18 18 18 / 96%);
+  --eno-dialog-border: rgb(255 255 255 / 8%);
+  --eno-dialog-shadow: 0 20px 60px rgb(0 0 0 / 55%);
+  --eno-dialog-radius: 8px;
 }

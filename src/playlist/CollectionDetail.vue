@@ -34,7 +34,7 @@ const collectionType = computed(() => {
 })
 
 const collectionInfo = ref<any>(null)
-const dominantColor = ref('#1db954') // 默认绿色
+const dominantColor = ref('#1ed760') // 默认绿色
 
 // 提取封面主色调
 watch(collectionInfo, async (newInfo) => {
@@ -46,7 +46,7 @@ watch(collectionInfo, async (newInfo) => {
       }
     } catch (e) {
       console.warn('Failed to extract color:', e)
-      dominantColor.value = '#1db954'
+      dominantColor.value = '#1ed760'
     }
   }
 }, { immediate: true })

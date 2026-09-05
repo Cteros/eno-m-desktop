@@ -10,7 +10,7 @@ import { VIDEO_MODE, useBlblStore } from '../../blbl/store'
 import { usePlaylistStore } from '../../playlist/store.ts'
 import { useDownloadStore } from '../../store/downloadStore'
 import { formatFileName } from '~/utils/filename'
-import { LoopSwitch, ProgressBar, Slider, PlayControlBar, MessageAPI } from '@cloudfly/eno-ui'
+import { LoopSwitch, ProgressBar, Slider, MessageAPI } from '@cloudfly/eno-ui'
 import FullscreenPlayer from '../FullscreenPlayer/index.vue'
 
 // hooks & utils
@@ -459,93 +459,272 @@ async function downloadSong() {
 </script>
 
 <template>
-  <section class="flex flex-col w-full h-full bg-black text-[#b3b3b3]">
-    <div class="flex h-full items-center justify-between px-4 gap-4">
-      <!-- 左侧信息区 -->
-      <div class="flex items-center w-[30%] min-w-[200px]">
-        <div class="relative group cursor-pointer size-12 flex-shrink-0 mr-2" @click.stop="openBlTab">
-          <img v-if="store.play.cover" :src="store.play.cover" class="w-full h-full rounded object-cover">
-          <div v-else class="rounded bg-[#282828] flex items-center justify-center">
+  <section class="eno-player">
+    <div class="eno-player-shell">
+      <div class="eno-left">
+        <div class="eno-cover-wrap group" @click.stop="openBlTab">
+          <img v-if="store.play.cover" :src="store.play.cover" class="eno-cover">
+          <div v-else class="eno-cover eno-cover--empty">
             <div class="i-mingcute:music-2-fill text-2xl" />
           </div>
-          <!-- 展开视频图标 -->
-          <div class="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center rounded">
+          <div class="eno-cover-mask">
             <div class="i-mingcute:arrow-up-circle-fill text-2xl text-white" />
           </div>
         </div>
 
-        <div class="flex flex-col overflow-hidden">
-          <div class="text-white text-sm truncate cursor-pointer" v-html="displayData.title" />
-          <div class="text-xs truncate hover:text-white cursor-pointer">
+        <div class="eno-meta">
+          <div class="eno-title" v-html="displayData.title" />
+          <div class="eno-author">
             {{ store.play.author }}
           </div>
         </div>
 
-        <div class="flex gap-3 pl-2 mr-2">
-          <div class="i-mingcute:heart-line hover:text-white cursor-pointer text-lg"
-            @click.stop="PLstore.startAddSong(store.play)" />
-        </div>
-        <div
-          :class="cn('cursor-pointer text-lg transition-colors hover:text-white relative group', isDownloading ? 'text-[#1db954]' : '')"
-          @click="!isDownloading && downloadSong()" :title="isDownloading ? '下载中...' : '下载歌曲'">
-          <div v-if="isDownloading" class="i-mingcute:loading-3-fill animate-spin" />
-          <div v-else class="i-mingcute:download-2-fill" />
-          <!-- 下载进度提示 -->
-          <div v-if="isDownloading && downloadProgress > 0"
-            class="absolute -top-8 right-0 bg-black/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-            {{ Math.round(downloadProgress) }}%
+        <div class="eno-mini-actions">
+          <div
+            class="i-mingcute:heart-line"
+            @click.stop="PLstore.startAddSong(store.play)"
+          />
+          <div
+            :class="cn('relative', isDownloading ? 'text-[#1ed760]' : '')"
+            :title="isDownloading ? '下载中...' : '下载歌曲'"
+            @click="!isDownloading && downloadSong()"
+          >
+            <div v-if="isDownloading" class="i-mingcute:loading-3-fill animate-spin" />
+            <div v-else class="i-mingcute:download-2-fill" />
           </div>
         </div>
       </div>
 
-      <!-- 中间控制区 -->
-      <div class="flex flex-col items-center w-[40%] max-w-[722px] gap-1">
-        <PlayControlBar :isPlaying="isPlaying" @play="playControl" @prev="() => change('prev')"
-          @next="() => change('next')" @forward="() => changeSeek(15)" @backward="() => changeSeek(-15)">
-          <template #left>
-            <LoopSwitch v-model="store.loopMode" />
-          </template>
-          <template #right>
-            <div class="i-mingcute:repeat-one-line hover:text-white cursor-pointer text-lg opacity-0" />
-          </template>
-        </PlayControlBar>
+      <div class="eno-center">
+        <div class="eno-controls">
+          <LoopSwitch v-model="store.loopMode" />
+          <div class="i-mingcute:skip-backward-fill eno-ctrl" @click.stop="change('prev')" />
+          <button
+            type="button"
+            class="eno-play-btn"
+            aria-label="播放/暂停"
+            @click.stop="playControl"
+          >
+            <span
+              v-if="isPlaying"
+              class="eno-play-icon i-mingcute:pause-fill"
+            />
+            <span
+              v-else
+              class="eno-play-icon i-mingcute:play-fill"
+            />
+          </button>
+          <div class="i-mingcute:skip-forward-fill eno-ctrl" @click.stop="change('next')" />
+        </div>
 
-        <ProgressBar :percent="progress.percent" :current="progress.current" :total="progress.total"
-          @seek="handleSeekPercent" @dragging="handleDragging" />
+        <ProgressBar
+          :percent="progress.percent"
+          :current="progress.current"
+          :total="progress.total"
+          @seek="handleSeekPercent"
+          @dragging="handleDragging"
+        />
       </div>
 
-      <!-- 右侧功能区 -->
-      <div class="flex items-center justify-end gap-3 w-[30%] min-w-[200px]">
-        <div class="flex items-center gap-2 w-32 group">
-          <div v-if="isCloseVoice" class="i-mingcute:volume-mute-line text-lg" @click="setVoice" />
-          <div v-else class="i-mingcute:volume-line text-lg" @click="setVoice" />
-          <Slider v-if="!isCloseVoice" class="flex-1 h-1" :value="voice" @update:value="val => (voice = val)"
-            @change="handleChangeVoice" />
+      <div class="eno-right">
+        <div class="eno-volume">
+          <div v-if="isCloseVoice" class="i-mingcute:volume-mute-line eno-ctrl" @click="setVoice" />
+          <div v-else class="i-mingcute:volume-line eno-ctrl" @click="setVoice" />
+          <Slider
+            v-if="!isCloseVoice"
+            class="flex-1 h-1"
+            :value="voice"
+            @update:value="val => (voice = val)"
+            @change="handleChangeVoice"
+          />
         </div>
         <div
-          :class="cn('i-mingcute:playlist-fill cursor-pointer text-lg transition-colors', showPlaylist ? 'text-[#1db954]' : 'hover:text-white')"
-          @click="toggleList" />
-        <div class="i-mingcute:fullscreen-line hover:text-white cursor-pointer text-lg" @click="fullScreenTheBody" />
+          :class="cn('i-mingcute:playlist-fill eno-ctrl', showPlaylist ? 'text-[#1ed760]' : '')"
+          @click="toggleList"
+        />
+        <div class="i-mingcute:fullscreen-line eno-ctrl" @click="fullScreenTheBody" />
       </div>
     </div>
-    <FullscreenPlayer v-model:show="showFullscreenPlayer" :isPlaying="isPlaying" :progress="progress"
-      @play="playControl" @prev="() => change('prev')" @next="() => change('next')" @seek="handleFullscreenSeek" />
+    <FullscreenPlayer
+      v-model:show="showFullscreenPlayer"
+      :is-playing="isPlaying"
+      :progress="progress"
+      @play="playControl"
+      @prev="() => change('prev')"
+      @next="() => change('next')"
+      @seek="handleFullscreenSeek"
+    />
   </section>
 </template>
 
 <style scoped>
-/* 移除默认的 range input 样式，使用自定义样式 */
-input[type=range] {
-  -webkit-appearance: none;
-  background: transparent;
-  cursor: pointer;
-  z-index: 20;
+.eno-player {
+  width: 100%;
+  height: 100%;
+  color: #b3b3b3;
+  background: #000;
 }
 
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  height: 12px;
-  width: 12px;
-  opacity: 0;
+.eno-player-shell {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(360px, 1.6fr) minmax(240px, 1fr);
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+  padding: 0 16px;
+}
+
+.eno-left {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.eno-cover-wrap {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.eno-cover {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.eno-cover--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #282828;
+}
+
+.eno-cover-mask {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 50%);
+}
+
+.group:hover .eno-cover-mask {
+  display: flex;
+}
+
+.eno-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.eno-title {
+  overflow: hidden;
+  color: #fff;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eno-author {
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eno-mini-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+}
+
+.eno-mini-actions > * {
+  cursor: pointer;
+}
+
+.eno-mini-actions > *:hover {
+  color: #fff;
+}
+
+.eno-center {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.eno-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.eno-ctrl {
+  font-size: 18px;
+  color: #b3b3b3;
+  cursor: pointer;
+  transition: color 0.12s var(--eno-ease);
+}
+
+.eno-ctrl:hover {
+  color: #fff;
+}
+
+button.eno-play-btn {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  color: #000;
+  background: #fff;
+  background-color: #fff;
+  cursor: pointer;
+  transition: transform 0.12s var(--eno-ease);
+}
+
+button.eno-play-btn:hover {
+  transform: scale(1.06);
+  background: #fff;
+  background-color: #fff;
+  color: #000;
+}
+
+button.eno-play-btn .eno-play-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  color: #000;
+  background-color: #000;
+}
+
+.eno-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.eno-volume {
+  display: flex;
+  width: 128px;
+  align-items: center;
+  gap: 8px;
+}
+
+:deep(.progress-bar),
+:deep(.eno-progress) {
+  width: 100%;
 }
 </style>

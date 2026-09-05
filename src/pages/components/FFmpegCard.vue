@@ -34,7 +34,7 @@ const statusText = computed(() => {
 
 const statusColor = computed(() => {
   if (!props.ffmpegInfo) return 'text-text-tertiary'
-  return isInstalled.value ? 'text-[#1db954]' : 'text-orange-400'
+  return isInstalled.value ? 'text-[#1ed760]' : 'text-orange-400'
 })
 </script>
 
@@ -135,7 +135,7 @@ const statusColor = computed(() => {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: #1db954;
+  background: #1ed760;
   box-shadow: 0 0 8px rgba(29, 185, 84, 0.6);
   display: inline-block;
 }

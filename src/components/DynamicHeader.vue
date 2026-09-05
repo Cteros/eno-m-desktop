@@ -59,7 +59,7 @@ const emit = defineEmits(['play', 'search', 'open-external'])
         <div
           class="i-mingcute:search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-white transition-colors" />
         <input v-model="keyword" placeholder="搜索歌曲..."
-          class="w-full h-10 bg-[#ffffff1a] hover:bg-[#ffffff2a] focus:bg-[#333] rounded-lg pl-10 pr-4 text-sm text-white outline-none  border border-transparent focus:border-[#1db954]"
+          class="w-full h-10 bg-[#ffffff1a] hover:bg-[#ffffff2a] focus:bg-[#333] rounded-lg pl-10 pr-4 text-sm text-white outline-none  border border-transparent focus:border-[#1ed760]"
           @keyup.enter="emit('search', keyword)" />
       </div>
     </div>

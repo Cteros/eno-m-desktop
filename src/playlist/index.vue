@@ -41,8 +41,8 @@ const lastSyncTimeText = computed(() => {
       <div class="mb-12 mt-6">
         <div class="flex items-end justify-between mb-4">
           <div>
-            <h2 class="text-4xl font-black text-white mb-2 tracking-tight">
-              我的收藏
+            <h2 class="text-[32px] font-800 text-white mb-2 tracking-tight">
+              媒体库
             </h2>
             <p class="text-gray-400 text-sm">
               {{ PLStore.favList.length + PLStore.collectedFavList.length }} 个收藏夹
@@ -67,7 +67,7 @@ const lastSyncTimeText = computed(() => {
       <!-- 我创建的收藏夹 -->
       <div class="mb-4">
         <h3 class="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <div class="w-1 h-8 bg-gradient-to-b from-[#1db954] to-transparent rounded-full" />
+          <div class="w-1 h-8 bg-gradient-to-b from-[#1ed760] to-transparent rounded-full" />
           我创建的收藏夹
         </h3>
         <div v-if="PLStore.favList.length" class="flex flex-wrap gap-8">
@@ -82,7 +82,7 @@ const lastSyncTimeText = computed(() => {
       <!-- 收藏的其他内容（包含合集和列表） -->
       <div class="mb-8">
         <h3 class="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <div class="w-1 h-8 bg-gradient-to-b from-[#1db954] to-transparent rounded-full" />
+          <div class="w-1 h-8 bg-gradient-to-b from-[#1ed760] to-transparent rounded-full" />
           收藏的其他内容
         </h3>
 

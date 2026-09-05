@@ -19,7 +19,7 @@ function handleAddSongToFav(fav) {
         " @click.stop="PLStore.addSongToListenLater"
       >
         <h2 class="w-full text-base truncate flex items-center gap-3 text-white">
-          <div class="i-mingcute:time-fill w-5 h-5 text-[#1db954]" />
+          <div class="i-mingcute:time-fill w-5 h-5 text-[#1ed760]" />
           稍后播放
         </h2>
       </section>

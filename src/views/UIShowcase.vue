@@ -121,7 +121,7 @@
                 </div>
               </div>
               <div v-if="inputVal" class="text-xs text-gray-400">
-                Value: "<span class="text-[#1db954]">{{ inputVal }}</span>"
+                Value: "<span class="text-[#1ed760]">{{ inputVal }}</span>"
               </div>
             </div>
             <template #code>
@@ -182,7 +182,7 @@
                   <span>Time:</span>
                   <button
                     class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200"
-                    :class="showTime ? 'bg-[#1db954]' : 'bg-[rgb(255_255_255_/_0.15)]'"
+                    :class="showTime ? 'bg-[#1ed760]' : 'bg-[rgb(255_255_255_/_0.15)]'"
                     @click="showTime = !showTime"
                   >
                     <span
@@ -228,7 +228,7 @@
               </div>
               <div class="text-center text-sm text-gray-400">
                 {{ isPlaying ? '▶️ Playing' : '⏸ Paused' }}
-                <span v-if="msgInfo" class="ml-3 text-[#1db954]">{{ msgInfo }}</span>
+                <span v-if="msgInfo" class="ml-3 text-[#1ed760]">{{ msgInfo }}</span>
               </div>
             </div>
             <template #code>
@@ -288,7 +288,7 @@
                   点击遮罩层或右上角的 ✕ 按钮即可关闭。
                 </p>
                 <div class="bg-[rgb(255_255_255_/_0.04)] rounded-lg p-4 mt-4">
-                  <p class="text-sm text-[#1db954] font-medium">✨ 提示</p>
+                  <p class="text-sm text-[#1ed760] font-medium">✨ 提示</p>
                   <p class="text-xs text-gray-400 mt-1">Dialog 基于原生 &lt;dialog&gt; 元素构建，支持键盘 ESC 关闭。</p>
                 </div>
               </div>
@@ -483,7 +483,7 @@ MessageAPI.show({ message: '&hellip;', type: 'success', duration: 3000 })</pre>
                 <span class="text-[10px] text-gray-500 group-hover:text-gray-300 text-center leading-tight transition-colors">{{ icon }}</span>
               </div>
             </div>
-            <div v-if="copiedIcon" class="mt-4 text-center text-xs text-[#1db954] animate-pulse">
+            <div v-if="copiedIcon" class="mt-4 text-center text-xs text-[#1ed760] animate-pulse">
               Copied: "{{ copiedIcon }}"
             </div>
             <template #code>

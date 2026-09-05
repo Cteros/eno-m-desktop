@@ -207,8 +207,12 @@ function clearLocalCache() {
     <div class="relative z-10 max-w-6xl mx-auto">
       <div class="settings-hero">
         <div>
-          <h1 class="text-3xl font-bold text-white mb-2">设置</h1>
-          <p class="text-sm text-gray-400">更快地完成下载配置与系统工具检查</p>
+          <h1 class="text-[32px] font-800 text-white mb-2 tracking-tight">
+            设置
+          </h1>
+          <p class="text-sm text-[#b3b3b3]">
+            管理下载、FFmpeg 与系统偏好
+          </p>
         </div>
         <div class="settings-hero__meta">
           <span class="text-xs text-gray-500">偏好设置已自动保存</span>

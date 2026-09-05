@@ -56,12 +56,14 @@ function handleTogglePin(tagid, e) {
   e.stopPropagation()
   if (pcStore.isTagPinned(tagid)) {
     pcStore.unpinTag(tagid)
-  } else {
-    if (!pcStore.pinTag(tagid)) {
-      // pin 失败时可以显示提示
-      MessageAPI.show({ type: 'warning', message: '最多只能固定 5 个分组' })
-    }
+    MessageAPI.show({ type: 'success', message: '已取消固定' })
+    return
   }
+  if (!pcStore.pinTag(tagid)) {
+    MessageAPI.show({ type: 'warning', message: '最多只能固定 5 个分组' })
+    return
+  }
+  MessageAPI.show({ type: 'success', message: '已固定到侧边栏' })
 }
 
 async function handleDeleteTag(tagid, e) {
@@ -115,7 +117,7 @@ async function handleCreateTag() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-0 sticky top-0 z-10 bg-transparent">
+  <div class="header-shell">
     <!-- 导航栏 -->
     <div class="flex items-center gap-4 h-16 px-6" style="-webkit-app-region: drag">
       <div class="flex gap-2" style="-webkit-app-region: no-drag">
@@ -153,15 +155,37 @@ async function handleCreateTag() {
     </div>
 
     <!-- Singer 页面 Tab 栏 - 显示所有分组(排除默认分组) -->
-    <div v-if="currentRoute === 'singerList'" class="border-t border-[#333333]">
+    <div v-if="currentRoute === 'singerList'" class="border-t border-[#333333]" style="-webkit-app-region: no-drag">
       <!-- 分组标签行 -->
       <div class="px-6 py-3 flex items-center gap-2 overflow-x-auto">
         <!-- 分组标签(不显示"所有分组"和"默认分组") -->
-        <button v-for="tag in allTags" :key="tag.tagid" @click="handleTagClick(tag.tagid)"
-          class="px-4 py-2 rounded-full whitespace-nowrap transition-colors text-body-small flex items-center gap-2 flex-shrink-0"
-          :class="selectedTagId === tag.tagid ? 'bg-[#1db954] text-black font-medium' : 'bg-[#282828] hover:bg-[#333333] text-white'">
+        <button
+          type="button"
+          class="tag-chip"
+          :class="{ 'tag-chip--active': selectedTagId === null }"
+          @click="handleTagClick(null)"
+        >
+          全部
+        </button>
+        <button
+          v-for="tag in allTags"
+          :key="tag.tagid"
+          type="button"
+          class="tag-chip group"
+          :class="{ 'tag-chip--active': selectedTagId === tag.tagid }"
+          @click="handleTagClick(tag.tagid)"
+        >
           <span>{{ tag.name }}</span>
-          <span class="text-xs opacity-70">{{ pcStore.getTagFollowerCount(tag.tagid) }}</span>
+          <span class="tag-chip__count">{{ pcStore.getTagFollowerCount(tag.tagid) }}</span>
+          <span
+            class="tag-pin"
+            :class="{ 'tag-pin--on': pcStore.isTagPinned(tag.tagid) }"
+            :title="pcStore.isTagPinned(tag.tagid) ? '取消固定' : '固定到侧边栏'"
+            @click="handleTogglePin(tag.tagid, $event)"
+          >
+            <div v-if="pcStore.isTagPinned(tag.tagid)" class="i-mingcute:pin-fill" />
+            <div v-else class="i-mingcute:pin-line" />
+          </span>
         </button>
 
         <!-- 创建分组按钮 -->
@@ -179,12 +203,16 @@ async function handleCreateTag() {
       <div v-if="selectedTagId !== null && allTags.some(tag => tag.tagid === selectedTagId)"
         class="px-6 py-2 border-t border-[#282828] flex items-center gap-3 bg-[#0a0a0a]">
         <span class="text-xs text-gray-500">操作:</span>
-        <button @click="handleTogglePin(selectedTagId, $event)"
-          :class="pcStore.isTagPinned(selectedTagId) ? 'text-[#1db954]' : 'text-gray-400 hover:text-white'"
+        <button
+          type="button"
           class="flex items-center gap-1 text-sm transition-colors"
-          :title="pcStore.isTagPinned(selectedTagId) ? '取消固定' : '固定到 Sider'">
-          <div :class="pcStore.isTagPinned(selectedTagId) ? 'i-mingcute:pin-fill' : 'i-mingcute:pin-line'" />
-          <span>{{ pcStore.isTagPinned(selectedTagId) ? '已固定' : '固定分组' }}</span>
+          :class="pcStore.isTagPinned(selectedTagId) ? 'text-[#1ed760]' : 'text-gray-400 hover:text-white'"
+          :title="pcStore.isTagPinned(selectedTagId) ? '取消固定' : '固定到侧边栏'"
+          @click="handleTogglePin(selectedTagId, $event)"
+        >
+          <div v-if="pcStore.isTagPinned(selectedTagId)" class="i-mingcute:pin-fill" />
+          <div v-else class="i-mingcute:pin-line" />
+          <span>{{ pcStore.isTagPinned(selectedTagId) ? '已固定' : '固定到侧边栏' }}</span>
         </button>
         <button @click="handleDeleteTag(selectedTagId, $event)"
           class="flex items-center gap-1 text-sm text-gray-400 hover:text-red-400 transition-colors" title="删除分组">
@@ -200,22 +228,92 @@ async function handleCreateTag() {
         <div>
           <label class="text-sm font-medium text-gray-300 mb-2 block">分组名称</label>
           <input v-model="newTagName" type="text" placeholder="例:我喜欢的歌手" maxlength="20" @keyup.enter="handleCreateTag"
-            class="w-full px-3 py-2 rounded bg-[#1a1a1a] text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1db954] border border-[#333333]"
-            autofocus />
-          <p class="text-xs text-gray-500 mt-1">{{ newTagName.length }}/20</p>
+            class="w-full px-3 py-2 rounded bg-[#1a1a1a] text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1ed760] border border-[#333333]"
+            autofocus
+          >
+          <p class="text-xs text-gray-500 mt-1">
+            {{ newTagName.length }}/20
+          </p>
         </div>
       </div>
 
       <template #footer>
-        <button @click="showCreateTagDialog = false"
-          class="px-4 py-2 rounded bg-[#282828] hover:bg-[#333333] text-white transition-colors">
+        <button
+          class="px-4 py-2 rounded-full bg-[#282828] hover:bg-[#333333] text-white transition-colors"
+          @click="showCreateTagDialog = false"
+        >
           取消
         </button>
-        <button @click="handleCreateTag" :disabled="isCreatingTag || !newTagName.trim()"
-          class="px-4 py-2 rounded bg-[#1db954] hover:bg-[#1ed760] text-black font-medium transition-colors disabled:opacity-50">
+        <button
+          class="px-4 py-2 rounded-full bg-[#1ed760] hover:bg-[#3be477] text-black font-700 transition-colors disabled:opacity-50"
+          :disabled="isCreatingTag || !newTagName.trim()"
+          @click="handleCreateTag"
+        >
           {{ isCreatingTag ? '创建中...' : '创建' }}
         </button>
       </template>
     </Dialog>
   </div>
 </template>
+
+<style scoped>
+.header-shell {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+  background: #121212;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #282828;
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.16s var(--eno-ease), color 0.16s var(--eno-ease);
+}
+
+.tag-chip:hover {
+  background: #333;
+}
+
+.tag-chip--active {
+  background: #1ed760;
+  color: #000;
+  font-weight: 700;
+}
+
+.tag-chip__count {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.tag-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  opacity: 0.45;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tag-chip:hover .tag-pin,
+.tag-pin--on {
+  opacity: 1;
+}
+
+.tag-chip--active .tag-pin--on {
+  color: #000;
+}
+</style>
